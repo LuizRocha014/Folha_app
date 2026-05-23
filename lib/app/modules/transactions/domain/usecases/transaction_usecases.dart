@@ -38,18 +38,12 @@ class AddTransactionUseCase
   AddTransactionUseCase(this.repository);
 
   @override
-  Future<Either<Failure, TransactionEntity>> call(
-    AddTransactionParams params,
-  ) {
+  Future<Either<Failure, TransactionEntity>> call(AddTransactionParams params) {
     if (params.description.trim().isEmpty) {
-      return Future.value(
-        const Left(ValidationFailure('Descrição obrigatória.')),
-      );
+      return Future.value(const Left(ValidationFailure('Descrição obrigatória.')));
     }
     if (params.value == 0) {
-      return Future.value(
-        const Left(ValidationFailure('Valor deve ser diferente de zero.')),
-      );
+      return Future.value(const Left(ValidationFailure('Valor deve ser diferente de zero.')));
     }
     return repository.add(
       description: params.description,
@@ -58,4 +52,12 @@ class AddTransactionUseCase
       value: params.value,
     );
   }
+}
+
+class DeleteTransactionUseCase implements UseCase<void, String> {
+  final TransactionRepository repository;
+  DeleteTransactionUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, void>> call(String id) => repository.remove(id);
 }

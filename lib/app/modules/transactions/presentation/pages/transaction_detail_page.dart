@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/utils/folha_formatters.dart';

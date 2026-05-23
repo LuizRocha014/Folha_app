@@ -2,7 +2,6 @@ import 'package:get/get.dart';
 import 'auth_controller.dart';
 
 /// Coordena o fluxo multi-step de cadastro (4 etapas).
-/// Mantém o estado do formulário independente do AuthController (que só sabe da sessão final).
 class SignupController extends GetxController {
   final AuthController auth;
   SignupController({required this.auth});
@@ -34,7 +33,6 @@ class SignupController extends GetxController {
   void next() => step.value = (step.value + 1).clamp(0, 3);
   void prev() => step.value = (step.value - 1).clamp(0, 3);
 
-  /// Strength da senha — retorna (pct 0..100, label, severity 0..5).
   ({int pct, String label, int severity}) passwordStrength() {
     var s = 0;
     final p = password.value;
@@ -63,14 +61,12 @@ class SignupController extends GetxController {
   }
 
   Future<bool> finalize() async {
-    final b = _parseBirth();
-    if (b == null) return false;
     return auth.signup(
       email: email.value,
       password: password.value,
       fullName: fullName.value,
       cpf: cpf.value,
-      birthDate: b,
+      birthDate: _parseBirth(),
     );
   }
 }

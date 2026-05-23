@@ -3,13 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/bindings/initial_binding.dart';
+import 'core/config/app_config.dart';
 import 'core/routes/app_pages.dart';
+import 'core/security/auto_lock_service.dart';
 import 'core/theme/folha_colors.dart';
 import 'core/theme/folha_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppConfig.load();
   await initializeDateFormatting('pt_BR');
+
+  AutoLockService.I.initialize(timeout: const Duration(minutes: 3));
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -37,6 +42,9 @@ class FolhaApp extends StatelessWidget {
       getPages: AppPages.routes,
       locale: const Locale('pt', 'BR'),
       fallbackLocale: const Locale('pt', 'BR'),
+      builder: (context, child) => AppLifecycleHook(
+        child: AutoLockGate(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

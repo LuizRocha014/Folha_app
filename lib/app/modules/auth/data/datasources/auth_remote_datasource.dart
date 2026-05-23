@@ -1,50 +1,46 @@
+import '../../../../../core/errors/exceptions.dart';
+import '../../../../../core/network/base_remote_service.dart';
+import '../models/auth_session.dart';
 import '../models/user_model.dart';
 
-/// Contrato do datasource remoto — substituível por uma versão Dio real depois.
 abstract class AuthRemoteDataSource {
-  Future<UserModel> login({required String email, required String password});
+  Future<AuthSession> login({required String email, required String password});
 
   Future<UserModel> signup({
     required String email,
     required String password,
     required String fullName,
-    required String cpf,
-    required DateTime birthDate,
+    required String displayName,
   });
 
-  Future<bool> verifyEmailCode({required String code});
+  Future<UserModel> currentUserMe();
 
-  Future<void> logout();
-
-  Future<UserModel?> currentUser();
+  Future<void> logout({required String refreshToken});
 }
 
-/// Implementação **fake** — usar enquanto o backend não existe.
-/// Retorna dados mock com latência simulada (Future.delayed).
-class AuthRemoteDataSourceFake implements AuthRemoteDataSource {
-  UserModel? _session;
-
-  static const _defaultUser = UserModel(
-    id: 'u_marina',
-    fullName: 'Marina Alves',
-    email: 'marina.alves@email.com',
-    cpf: '123.456.789-00',
-  );
+class AuthRemoteDataSourceImpl extends BaseRemoteService
+    implements AuthRemoteDataSource {
+  AuthRemoteDataSourceImpl({required super.http});
 
   @override
-  Future<UserModel> login({
+  Future<AuthSession> login({
     required String email,
     required String password,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    _session = UserModel(
-      id: _defaultUser.id,
-      fullName: _defaultUser.fullName,
-      email: email,
-      cpf: _defaultUser.cpf,
-      birthDate: _defaultUser.birthDate,
-    );
-    return _session!;
+  }) async {  
+    try {
+      final json = await postMap(
+        '/api/auth/login',
+        body: {'email': email, 'password': password},
+        anonymous: true,
+      );
+      return AuthSession.fromLoginResponse(json);
+    } on AuthException {
+      // 401 no login = credenciais inválidas (semântica de domínio).
+      throw AuthException('Email ou senha inválidos.');
+    } on ServerException catch (e) {
+      // 400 com payload de validação volta como ServerException — re-traduz.
+      throw AuthException(e.message);
+    }
   }
 
   @override
@@ -52,32 +48,42 @@ class AuthRemoteDataSourceFake implements AuthRemoteDataSource {
     required String email,
     required String password,
     required String fullName,
-    required String cpf,
-    required DateTime birthDate,
+    required String displayName,
   }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-    _session = UserModel(
-      id: 'u_${DateTime.now().millisecondsSinceEpoch}',
-      fullName: fullName,
-      email: email,
-      cpf: cpf,
-      birthDate: birthDate,
-    );
-    return _session!;
+    try {
+      final json = await postMap(
+        '/api/users',
+        body: {
+          'email': email,
+          'password': password,
+          'fullName': fullName,
+          'displayName': displayName,
+        },
+        anonymous: true,
+      );
+      return UserModel.fromJson(json);
+    } on ServerException catch (e) {
+      // Validation / email duplicado vem como 400.
+      throw AuthException(e.message);
+    }
   }
 
   @override
-  Future<bool> verifyEmailCode({required String code}) async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    return code.length == 6;
+  Future<UserModel> currentUserMe() async {
+    final json = await getMap('/api/users/me');
+    return UserModel.fromJson(json);
   }
 
   @override
-  Future<void> logout() async {
-    await Future.delayed(const Duration(milliseconds: 200));
-    _session = null;
+  Future<void> logout({required String refreshToken}) async {
+    try {
+      await postVoid(
+        '/api/auth/logout',
+        body: {'refreshToken': refreshToken},
+        anonymous: true,
+      );
+    } catch (_) {
+      // Logout silencioso — o que importa é apagar a sessão local.
+    }
   }
-
-  @override
-  Future<UserModel?> currentUser() async => _session;
 }

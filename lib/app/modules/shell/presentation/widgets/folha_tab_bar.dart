@@ -1,10 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../../core/theme/folha_colors.dart';
 
 /// Tab bar flutuante com FAB central — espelha o protótipo Folha.
-/// 5 itens: Início, Movimentos, [+], Contas, Perfil.
+/// 5 itens visuais: Início, Movimentos, [+], Contas, Perfil.
+/// Logicamente são 4 tabs (índices 0..3) — o `+` chama `onAddPressed`.
 class FolhaTabBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -31,45 +32,59 @@ class FolhaTabBar extends StatelessWidget {
       bottom: 16,
       left: 16,
       right: 16,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: FolhaColors.paper50.withValues(alpha: 0.86),
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: FolhaColors.divider),
-              boxShadow: [
-                BoxShadow(
-                  color: FolhaColors.forest900.withValues(alpha: 0.18),
-                  offset: const Offset(0, 10),
-                  blurRadius: 32,
-                  spreadRadius: -8,
+      // Stack para o FAB poder ultrapassar o topo da barra sem ser clipado.
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Pílula com blur
+          ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: FolhaColors.paper50.withValues(alpha: 0.86),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: FolhaColors.divider),
+                  boxShadow: [
+                    BoxShadow(
+                      color: FolhaColors.forest900.withValues(alpha: 0.18),
+                      offset: const Offset(0, 10),
+                      blurRadius: 32,
+                      spreadRadius: -8,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_items.length, (i) {
-                if (_items[i] == null) {
-                  return _Fab(onTap: onAddPressed);
-                }
-                final item = _items[i]!;
-                // Index lógico (pulando o FAB) para o onTap externo
-                final logicalIndex = i < 2 ? i : i - 1;
-                final active = currentIndex == logicalIndex;
-                return _TabItem(
-                  icon: item.icon,
-                  label: item.label,
-                  active: active,
-                  onTap: () => onTap(logicalIndex),
-                );
-              }),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(_items.length, (i) {
+                    if (_items[i] == null) {
+                      // Slot vazio reservado para o FAB (que vive fora do ClipRRect).
+                      return const SizedBox(width: 50, height: 50);
+                    }
+                    final item = _items[i]!;
+                    final logicalIndex = i < 2 ? i : i - 1;
+                    final active = currentIndex == logicalIndex;
+                    return _TabItem(
+                      icon: item.icon,
+                      label: item.label,
+                      active: active,
+                      onTap: () => onTap(logicalIndex),
+                    );
+                  }),
+                ),
+              ),
             ),
           ),
-        ),
+          // FAB sobreposto, levantando 22dp acima da barra.
+          Positioned(
+            top: -22,
+            left: 0,
+            right: 0,
+            child: Center(child: _Fab(onTap: onAddPressed)),
+          ),
+        ],
       ),
     );
   }
@@ -138,29 +153,26 @@ class _FabState extends State<_Fab> {
         scale: _pressed ? 0.92 : 1,
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
-        child: Transform.translate(
-          offset: const Offset(0, -22),
-          child: Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: FolhaColors.forest700,
-              shape: BoxShape.circle,
-              border: Border.all(color: FolhaColors.paper50, width: 4),
-              boxShadow: [
-                BoxShadow(
-                  color: FolhaColors.forest900.withValues(alpha: 0.35),
-                  offset: const Offset(0, 6),
-                  blurRadius: 16,
-                  spreadRadius: -2,
-                ),
-              ],
-            ),
-            child: const Icon(
-              LucideIcons.plus,
-              color: FolhaColors.paper50,
-              size: 24,
-            ),
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: FolhaColors.forest700,
+            shape: BoxShape.circle,
+            border: Border.all(color: FolhaColors.paper50, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: FolhaColors.forest900.withValues(alpha: 0.35),
+                offset: const Offset(0, 6),
+                blurRadius: 16,
+                spreadRadius: -2,
+              ),
+            ],
+          ),
+          child: const Icon(
+            LucideIcons.plus,
+            color: FolhaColors.paper50,
+            size: 26,
           ),
         ),
       ),

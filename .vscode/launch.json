@@ -6,7 +6,7 @@
     "configurations": [
     
         {
-            "name": "Folha_app",
+            "name": "Folha",
             "request": "launch",
             "type": "dart"
         },

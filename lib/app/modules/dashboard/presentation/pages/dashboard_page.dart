@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../../core/routes/app_routes.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
@@ -23,16 +23,6 @@ class DashboardPage extends StatelessWidget {
     final txs = Get.find<TransactionsController>();
     final auth = Get.find<AuthController>();
     final shell = Get.find<ShellController>();
-
-    final week = const [
-      ('Seg', 42.0),
-      ('Ter', 87.0),
-      ('Qua', 28.0),
-      ('Qui', 156.0),
-      ('Sex', 195.0),
-      ('Sáb', 88.0),
-      ('Dom', 51.0),
-    ];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 110),
@@ -160,14 +150,20 @@ class DashboardPage extends StatelessWidget {
                               color: FolhaColors.forest300,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              '+${FolhaFormatters.brl(txs.weekDelta)} essa semana',
-                              style: FolhaTypography.body.copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: FolhaColors.forest300,
-                              ),
-                            ),
+                            Obx(() {
+                              // Recomputa quando a lista muda.
+                              txs.items.length;
+                              final delta = txs.weekDelta;
+                              final sign = delta >= 0 ? '+' : '−';
+                              return Text(
+                                '$sign${FolhaFormatters.brl(delta.abs())} essa semana',
+                                style: FolhaTypography.body.copyWith(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: FolhaColors.forest300,
+                                ),
+                              );
+                            }),
                           ],
                         ),
                       ),
@@ -257,29 +253,39 @@ class DashboardPage extends StatelessWidget {
 
           // Weekly chart
           const SizedBox(height: 24),
-          FolhaEyebrow(
-            label: 'Sua semana',
-            action: Text(
-              'Total: ${FolhaFormatters.brl(week.map((w) => w.$2).reduce((a, b) => a + b))}',
-              style: FolhaTypography.body.copyWith(
-                fontSize: 12,
-                color: FolhaColors.forest700,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-              decoration: BoxDecoration(
-                color: FolhaColors.paper50,
-                border: Border.all(color: FolhaColors.border),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: _WeeklyChart(week: week),
-            ),
-          ),
+          Obx(() {
+            txs.items.length;
+            final week = txs.last7DaysExpenses;
+            final total = week.fold<double>(0, (a, b) => a + b.expense);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                FolhaEyebrow(
+                  label: 'Sua semana',
+                  action: Text(
+                    'Gasto: ${FolhaFormatters.brl(total)}',
+                    style: FolhaTypography.body.copyWith(
+                      fontSize: 12,
+                      color: FolhaColors.forest700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+                    decoration: BoxDecoration(
+                      color: FolhaColors.paper50,
+                      border: Border.all(color: FolhaColors.border),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: _WeeklyChart(week: week),
+                  ),
+                ),
+              ],
+            );
+          }),
 
           // Recent transactions
           const SizedBox(height: 24),
@@ -377,69 +383,171 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-class _WeeklyChart extends StatelessWidget {
-  final List<(String, double)> week;
+class _WeeklyChart extends StatefulWidget {
+  final List<({String day, double expense})> week;
   const _WeeklyChart({required this.week});
+
+  @override
+  State<_WeeklyChart> createState() => _WeeklyChartState();
+}
+
+class _WeeklyChartState extends State<_WeeklyChart> {
+  /// Índice selecionado pelo usuário (tap). `null` significa "nenhuma selecionada"
+  /// — nesse caso o destaque automático fica em hoje (índice 6).
+  int? _selected;
+
+  static const _fullDayName = {
+    'Dom': 'Domingo',
+    'Seg': 'Segunda',
+    'Ter': 'Terça',
+    'Qua': 'Quarta',
+    'Qui': 'Quinta',
+    'Sex': 'Sexta',
+    'Sáb': 'Sábado',
+  };
+
+  void _toggle(int i) {
+    setState(() => _selected = _selected == i ? null : i);
+  }
 
   @override
   Widget build(BuildContext context) {
     final dash = Get.find<DashboardController>();
-    final maxVal = week.map((w) => w.$2).reduce((a, b) => a > b ? a : b);
-    return SizedBox(
-      height: 120,
-      child: Obx(() {
-        final anim = dash.animateChart.value;
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: List.generate(week.length, (i) {
-            final w = week[i];
-            final isToday = i == 4;
-            final ratio = anim ? (w.$2 / maxVal) : 0.0;
-            return Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.bottomCenter,
-                        child: AnimatedContainer(
-                          duration: Duration(milliseconds: 600 + i * 60),
-                          curve: Curves.easeOutCubic,
-                          height: (120 - 22) * ratio,
-                          decoration: BoxDecoration(
-                            color: isToday
-                                ? FolhaColors.forest700
-                                : FolhaColors.forest300,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(6),
-                              bottom: Radius.circular(2),
+    final week = widget.week;
+    final maxVal = week.fold<double>(0, (m, w) => w.expense > m ? w.expense : m);
+    // Hoje é o último item (índice 6) — week é ordenado cronologicamente.
+    const todayIndex = 6;
+    final activeIndex = _selected ?? todayIndex;
+    final active = week[activeIndex];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Tooltip permanente do dia ativo: hoje quando nada tocado;
+        // o dia tocado em destaque verde quando há seleção.
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: Container(
+            key: ValueKey(activeIndex),
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _selected == null
+                  ? FolhaColors.paper200
+                  : FolhaColors.forest200,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _selected == null
+                      ? LucideIcons.calendar
+                      : LucideIcons.mousePointer2,
+                  size: 12,
+                  color: _selected == null
+                      ? FolhaColors.fgMuted
+                      : FolhaColors.forest700,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${_fullDayName[active.day] ?? active.day}: '
+                  '${FolhaFormatters.brl(active.expense)}',
+                  style: FolhaTypography.body.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _selected == null
+                        ? FolhaColors.ink700
+                        : FolhaColors.forest700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 120,
+          child: Obx(() {
+            final anim = dash.animateChart.value;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(week.length, (i) {
+                final w = week[i];
+                final isToday = i == todayIndex;
+                final isSelected = _selected == i;
+                final ratio = !anim || maxVal == 0 ? 0.0 : (w.expense / maxVal);
+
+                final Color barColor;
+                if (w.expense == 0) {
+                  barColor = FolhaColors.paper200;
+                } else if (isSelected) {
+                  barColor = FolhaColors.forest500;
+                } else if (isToday && _selected == null) {
+                  barColor = FolhaColors.forest700;
+                } else {
+                  barColor = FolhaColors.forest300;
+                }
+
+                return Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _toggle(i),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.bottomCenter,
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 250 + i * 30),
+                                curve: Curves.easeOutCubic,
+                                // Reserva 2dp mínimos para barras zeradas — fica claro que tem dado.
+                                height: (120 - 22) * ratio +
+                                    (w.expense > 0 ? 0 : 2),
+                                decoration: BoxDecoration(
+                                  color: barColor,
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(6),
+                                    bottom: Radius.circular(2),
+                                  ),
+                                  border: isSelected
+                                      ? Border.all(
+                                          color: FolhaColors.forest700,
+                                          width: 1.5,
+                                        )
+                                      : null,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          Text(
+                            w.day.toUpperCase(),
+                            style: FolhaTypography.eyebrow.copyWith(
+                              fontSize: 10,
+                              color: isSelected
+                                  ? FolhaColors.forest700
+                                  : (isToday && _selected == null)
+                                      ? FolhaColors.forest700
+                                      : FolhaColors.fgMuted,
+                              fontWeight: (isSelected ||
+                                      (isToday && _selected == null))
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      w.$1.toUpperCase(),
-                      style: FolhaTypography.eyebrow.copyWith(
-                        fontSize: 10,
-                        color: isToday
-                            ? FolhaColors.forest700
-                            : FolhaColors.fgMuted,
-                        fontWeight: isToday
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }),
             );
           }),
-        );
-      }),
+        ),
+      ],
     );
   }
 }

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "br.com.tagat.folha_app"
+    namespace = "br.com.rctech.folha"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "br.com.tagat.folha_app"
+        applicationId = "br.com.rctech.folha"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

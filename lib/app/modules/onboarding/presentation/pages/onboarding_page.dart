@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../../core/routes/app_routes.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';

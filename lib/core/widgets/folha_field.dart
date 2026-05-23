@@ -84,10 +84,12 @@ class FolhaField extends StatelessWidget {
 /// Input padrão Folha — borda hairline, fundo paper-50.
 class FolhaInput extends StatelessWidget {
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final String? hintText;
   final TextInputType? keyboardType;
   final bool obscureText;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
   final Widget? suffix;
   final TextInputAction? textInputAction;
   final bool autofocus;
@@ -98,10 +100,12 @@ class FolhaInput extends StatelessWidget {
   const FolhaInput({
     super.key,
     this.controller,
+    this.focusNode,
     this.hintText,
     this.keyboardType,
     this.obscureText = false,
     this.onChanged,
+    this.onSubmitted,
     this.suffix,
     this.textInputAction,
     this.autofocus = false,
@@ -114,9 +118,11 @@ class FolhaInput extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       obscureText: obscureText,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
       textInputAction: textInputAction,
       autofocus: autofocus,
       inputFormatters: inputFormatters,

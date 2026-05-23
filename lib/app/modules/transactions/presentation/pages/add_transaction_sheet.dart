@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/utils/folha_formatters.dart';
 import '../../../../../core/widgets/folha_widgets.dart';
+import '../../../categories/presentation/widgets/new_category_dialog.dart';
 import '../controllers/transactions_controller.dart';
 
 class AddTransactionSheet extends StatefulWidget {
@@ -21,14 +22,108 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   final _amount = TextEditingController();
   final _desc = TextEditingController();
   final _place = TextEditingController();
+  bool _submitting = false;
+
+  /// Categorias custom criadas em runtime pela função "Nova categoria".
+  /// Persistem por sessão; o banco salva via `NewCategoryDialog`.
+  final List<({String key, String label, IconData icon, Color color, Color bg})>
+      _customCats = [];
 
   double? _parsedAmount() {
     final v = _amount.text.replaceAll(',', '.');
     return double.tryParse(v);
   }
 
-  bool get _valid =>
-      _desc.text.trim().isNotEmpty && (_parsedAmount() ?? 0) > 0;
+  /// Para **entrada** só exige o valor; descrição é opcional.
+  /// Para **saída** continua exigindo descrição + valor (evita lançamentos vagos).
+  bool get _valid {
+    if (_submitting) return false;
+    if ((_parsedAmount() ?? 0) <= 0) return false;
+    if (_type == 'income') return true;
+    return _desc.text.trim().isNotEmpty;
+  }
+
+  /// Quando é entrada e o usuário não digita descrição, usamos um default
+  /// neutro pra a transação não ficar com label vazio na listagem.
+  String _resolvedDescription() {
+    final typed = _desc.text.trim();
+    if (typed.isNotEmpty) return typed;
+    return _type == 'income' ? 'Entrada' : '';
+  }
+
+  Future<void> _onSave(TransactionsController controller) async {
+    if (!_valid) return;
+    setState(() => _submitting = true);
+    try {
+      final parsed = _parsedAmount() ?? 0;
+      final signed = _type == 'income' ? parsed : -parsed;
+      final desc = _resolvedDescription();
+      final ok = await controller.add(
+        description: desc,
+        place: _place.text.trim().isEmpty ? '—' : _place.text.trim(),
+        category: _category,
+        value: signed,
+      );
+      if (!mounted) return;
+      if (ok) {
+        Navigator.of(context).pop();
+        Get.snackbar(
+          '',
+          '',
+          titleText: const SizedBox.shrink(),
+          messageText: Text(
+            '✓ Movimento salvo: $desc',
+            style: FolhaTypography.body.copyWith(
+              color: FolhaColors.paper50,
+              fontSize: 13,
+            ),
+          ),
+          backgroundColor: FolhaColors.forest900,
+          duration: const Duration(seconds: 2),
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      } else {
+        final err = controller.error.value ?? 'Não consegui salvar o movimento.';
+        Get.snackbar(
+          '',
+          '',
+          titleText: const SizedBox.shrink(),
+          messageText: Text(
+            err,
+            style: FolhaTypography.body.copyWith(
+              color: FolhaColors.paper50,
+              fontSize: 13,
+            ),
+          ),
+          backgroundColor: FolhaColors.terra700,
+          duration: const Duration(seconds: 3),
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 110),
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _openNewCategoryDialog() async {
+    final created = await showDialog<NewCategoryResult>(
+      context: context,
+      builder: (_) => const NewCategoryDialog(),
+    );
+    if (created == null) return;
+    setState(() {
+      _customCats.add((
+        key: created.slug,
+        label: created.label,
+        icon: created.icon,
+        color: created.color,
+        bg: created.bg,
+      ));
+      _category = created.slug;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,10 +162,14 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Novo movimento',
-                    style: FolhaTypography.titleEditorial(size: 24),
+                  Expanded(
+                    child: Text(
+                      'Novo movimento',
+                      style: FolhaTypography.titleEditorial(size: 24),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   FolhaIconBtn(
                     icon: LucideIcons.x,
                     variant: FolhaIconBtnVariant.soft,
@@ -158,10 +257,14 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               const SizedBox(height: 16),
 
               FolhaField(
-                label: 'Descrição',
+                // Em entrada o título é opcional — o usuário sinaliza com o
+                // sufixo no rótulo. Em saída continua obrigatório.
+                label: _type == 'income' ? 'Descrição (opcional)' : 'Descrição',
                 child: FolhaInput(
                   controller: _desc,
-                  hintText: 'Ex: Almoço com Júlia',
+                  hintText: _type == 'income'
+                      ? 'Ex: Salário, Bônus…'
+                      : 'Ex: Almoço com Júlia',
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -175,123 +278,95 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               ),
               const SizedBox(height: 14),
 
-              Text(
-                'CATEGORIA',
-                style: FolhaTypography.eyebrow.copyWith(letterSpacing: 0.66),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: FolhaCategoryStyles.all
-                    .where((e) => e.key != 'income')
-                    .map((entry) {
-                  final active = _category == entry.key;
-                  final cat = entry.value;
-                  return GestureDetector(
-                    onTap: () => setState(() => _category = entry.key),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: active ? cat.bg : Colors.transparent,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: active ? cat.color : FolhaColors.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            cat.icon,
-                            size: 14,
-                            color: active ? cat.color : FolhaColors.ink700,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            cat.label,
-                            style: FolhaTypography.body.copyWith(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: active
-                                  ? cat.color
-                                  : FolhaColors.ink700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 22),
               Row(
                 children: [
                   Expanded(
-                    flex: 1,
-                    child: FolhaButton(
-                      label: 'Cancelar',
-                      variant: FolhaButtonVariant.ghost,
-                      size: FolhaButtonSize.lg,
-                      onPressed: () => Navigator.of(context).pop(),
+                    child: Text(
+                      'CATEGORIA',
+                      style: FolhaTypography.eyebrow.copyWith(
+                        letterSpacing: 0.66,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: FolhaButton(
-                      label: 'Salvar movimento',
-                      size: FolhaButtonSize.lg,
-                      fullWidth: true,
-                      onPressed: _valid
-                          ? () async {
-                              final parsed = _parsedAmount() ?? 0;
-                              final signed =
-                                  _type == 'income' ? parsed : -parsed;
-                              final ok = await controller.add(
-                                description: _desc.text.trim(),
-                                place: _place.text.trim().isEmpty
-                                    ? '—'
-                                    : _place.text.trim(),
-                                category: _category,
-                                value: signed,
-                              );
-                              if (ok && context.mounted) {
-                                Navigator.of(context).pop();
-                                Get.snackbar(
-                                  '',
-                                  '',
-                                  titleText: const SizedBox.shrink(),
-                                  messageText: Text(
-                                    '✓ Movimento salvo: ${_desc.text.trim()}',
-                                    style: FolhaTypography.body.copyWith(
-                                      color: FolhaColors.paper50,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  backgroundColor: FolhaColors.forest900,
-                                  duration: const Duration(seconds: 2),
-                                  margin: const EdgeInsets.fromLTRB(
-                                    20,
-                                    0,
-                                    20,
-                                    110,
-                                  ),
-                                  snackPosition: SnackPosition.BOTTOM,
-                                );
-                              }
-                            }
-                          : null,
+                  GestureDetector(
+                    onTap: _openNewCategoryDialog,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.plus,
+                          size: 14,
+                          color: FolhaColors.forest700,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Nova',
+                          style: FolhaTypography.body.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: FolhaColors.forest700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-              // formatador opcional - mostrar valor formatado
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ...FolhaCategoryStyles.all
+                      .where((e) => e.key != 'income')
+                      .map((entry) => _CategoryChip(
+                            categoryKey: entry.key,
+                            label: entry.value.label,
+                            icon: entry.value.icon,
+                            color: entry.value.color,
+                            bg: entry.value.bg,
+                            active: _category == entry.key,
+                            onTap: () =>
+                                setState(() => _category = entry.key),
+                          )),
+                  ..._customCats.map((c) => _CategoryChip(
+                        categoryKey: c.key,
+                        label: c.label,
+                        icon: c.icon,
+                        color: c.color,
+                        bg: c.bg,
+                        active: _category == c.key,
+                        onTap: () => setState(() => _category = c.key),
+                      )),
+                ],
+              ),
+
+              const SizedBox(height: 22),
+              // Botão principal em largura total + ação de cancelar discreta abaixo.
+              // Mais espaço para o label longo "Salvar movimento" e zero overflow.
+              FolhaButton(
+                label: _submitting ? 'Salvando...' : 'Salvar movimento',
+                size: FolhaButtonSize.lg,
+                loading: _submitting,
+                fullWidth: true,
+                onPressed: _valid ? () => _onSave(controller) : null,
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: Text(
+                    'Cancelar',
+                    style: FolhaTypography.body.copyWith(
+                      fontSize: 13,
+                      color: FolhaColors.fgMuted,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               if (_parsedAmount() != null && _parsedAmount()! > 0)
                 Center(
                   child: Text(
@@ -352,6 +427,56 @@ class _TypeBtn extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    required this.categoryKey,
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.bg,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String categoryKey;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final Color bg;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? bg : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: active ? color : FolhaColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: active ? color : FolhaColors.ink700),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: FolhaTypography.body.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: active ? color : FolhaColors.ink700,
+              ),
+            ),
+          ],
         ),
       ),
     );

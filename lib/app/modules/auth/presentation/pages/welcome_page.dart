@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import '../../../../../core/routes/app_routes.dart';
+import '../../../../../core/security/secure_storage_service.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/widgets/folha_widgets.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
+
+  /// Marca a welcome como vista e navega para a rota informada.
+  /// A próxima vez que o app abrir sem sessão vai direto pro login.
+  Future<void> _goAndMarkSeen(String route) async {
+    await Get.find<SecureStorageService>().markWelcomeSeen();
+    await Get.toNamed(route);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +93,7 @@ class WelcomePage extends StatelessWidget {
                     label: 'Criar conta grátis',
                     size: FolhaButtonSize.lg,
                     fullWidth: true,
-                    onPressed: () => Get.toNamed(AppRoutes.signup),
+                    onPressed: () => _goAndMarkSeen(AppRoutes.signup),
                   ),
                   const SizedBox(height: 10),
                   FolhaButton(
@@ -93,7 +101,7 @@ class WelcomePage extends StatelessWidget {
                     variant: FolhaButtonVariant.ghost,
                     size: FolhaButtonSize.lg,
                     fullWidth: true,
-                    onPressed: () => Get.toNamed(AppRoutes.login),
+                    onPressed: () => _goAndMarkSeen(AppRoutes.login),
                   ),
                   const SizedBox(height: 10),
                   Text(

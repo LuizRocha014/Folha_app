@@ -16,8 +16,7 @@ dependencies:
   # State management, DI, routing
   get: ^4.7.2
 
-  # Networking (preparado para backend real)
-  dio: ^5.7.0
+  # Networking: usamos o HttpClient do dart:io (ver core/network/folha_http_client.dart).
 
   # Formatação BR (datas, moeda)
   intl: ^0.20.2
@@ -29,7 +28,9 @@ dependencies:
   flutter_svg: ^2.2.0
 
   # Ícones Lucide (mesma família do design system)
-  lucide_icons: ^0.257.0
+  # `lucide_icons_flutter` é o fork mantido — o pacote original `lucide_icons`
+  # quebra a partir do Flutter 3.27 porque IconData virou `final`.
+  lucide_icons_flutter: ^3.0.0
 
   # Equatable para entidades / value objects
   equatable: ^2.0.7
@@ -37,13 +38,51 @@ dependencies:
   # Dartz para Either (Failure | Success) no padrão Clean Arch
   dartz: ^0.10.1
 
+  # Local SQLite encriptado (SQLCipher)
+  sqflite_sqlcipher: ^3.1.0+1
+  path: ^1.9.0
+  path_provider: ^2.1.5
+
+  # Storage seguro (Keychain iOS / EncryptedSharedPreferences Android)
+  flutter_secure_storage: ^9.2.2
+
+  # Biometria nativa (digital / Face ID)
+  local_auth: ^2.3.0
+
+  # Detecção de conectividade
+  connectivity_plus: ^6.1.0
+
+  # Variáveis de ambiente
+  flutter_dotenv: ^5.2.1
+
+  # UUID v4 para IDs locais
+  uuid: ^4.5.1
+
+  # Crypto utilitários (SHA-256, key derivation)
+  crypto: ^3.0.6
+
+  # Info do device (device_id para refresh token)
+  device_info_plus: ^11.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+  # Gerador de ícone do launcher (Android + iOS)
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
 
   assets:
     - assets/svg/
+    - .env
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#1A3A2E"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
