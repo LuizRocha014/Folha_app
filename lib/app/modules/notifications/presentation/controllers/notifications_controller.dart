@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:get/get.dart';
 import '../../data/datasources/notification_local_datasource.dart';
 import '../../data/datasources/notification_remote_datasource.dart';
@@ -48,7 +50,8 @@ class NotificationsController extends GetxController {
     }
     try {
       await remote.markRead(n.id);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('markRead remote id=${n.id}', name: 'NotificationsController', error: e, stackTrace: st);
       // Sincroniza quando voltar online (via outbox no syncer).
     }
   }

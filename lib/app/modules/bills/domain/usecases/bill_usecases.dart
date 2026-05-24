@@ -36,7 +36,7 @@ class UpdateBillStatusUseCase
 class CreateBillParams extends Equatable {
   final String description;
   final double amount;
-  final DateTime due;
+  final DateTime? due;
   final bool isReceivable;
   final String? categorySlug;
   final String? accountId;

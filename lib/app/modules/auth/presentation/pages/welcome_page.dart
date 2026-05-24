@@ -7,14 +7,20 @@ import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/widgets/folha_widgets.dart';
 
-class WelcomePage extends StatelessWidget {
+class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
 
-  /// Marca a welcome como vista e navega para a rota informada.
-  /// A próxima vez que o app abrir sem sessão vai direto pro login.
-  Future<void> _goAndMarkSeen(String route) async {
-    await Get.find<SecureStorageService>().markWelcomeSeen();
-    await Get.toNamed(route);
+  @override
+  State<WelcomePage> createState() => _WelcomePageState();
+}
+
+class _WelcomePageState extends State<WelcomePage> {
+  @override
+  void initState() {
+    super.initState();
+    // Marca como vista assim que a tela aparece — se o usuário fechar o app
+    // aqui sem tocar em nada, na próxima abertura já vai direto pro login.
+    Get.find<SecureStorageService>().markWelcomeSeen();
   }
 
   @override
@@ -93,7 +99,7 @@ class WelcomePage extends StatelessWidget {
                     label: 'Criar conta grátis',
                     size: FolhaButtonSize.lg,
                     fullWidth: true,
-                    onPressed: () => _goAndMarkSeen(AppRoutes.signup),
+                    onPressed: () => Get.toNamed(AppRoutes.signup),
                   ),
                   const SizedBox(height: 10),
                   FolhaButton(
@@ -101,7 +107,7 @@ class WelcomePage extends StatelessWidget {
                     variant: FolhaButtonVariant.ghost,
                     size: FolhaButtonSize.lg,
                     fullWidth: true,
-                    onPressed: () => _goAndMarkSeen(AppRoutes.login),
+                    onPressed: () => Get.toNamed(AppRoutes.login),
                   ),
                   const SizedBox(height: 10),
                   Text(

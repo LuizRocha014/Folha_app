@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/sync/outbox_repository.dart';
@@ -39,7 +41,8 @@ class GoalsController extends GetxController {
     try {
       final list = await local.list();
       items.assignAll(list);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('refreshList', name: 'GoalsController', error: e, stackTrace: st);
       error.value = e.toString();
     } finally {
       loading.value = false;
@@ -77,7 +80,8 @@ class GoalsController extends GetxController {
       items.insert(0, goal);
       _pushCreate(goal);
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('create', name: 'GoalsController', error: e, stackTrace: st);
       error.value = e.toString();
       return false;
     }
@@ -88,7 +92,8 @@ class GoalsController extends GetxController {
       await remote.create(goal.toApiCreateJson());
       await syncManager.runFullSync();
       await refreshList();
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('_pushCreate id=${goal.id}', name: 'GoalsController', error: e, stackTrace: st);
       // Outbox vai tentar de novo quando online.
     }
   }

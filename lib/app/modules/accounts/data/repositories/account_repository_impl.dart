@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/errors/failures.dart';
@@ -29,7 +30,8 @@ class AccountRepositoryImpl implements AccountRepository {
   Future<Either<Failure, List<AccountEntity>>> list() async {
     try {
       return Right(await local.list());
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('list', name: 'AccountRepository', error: e, stackTrace: st);
       return Left(CacheFailure(e.toString()));
     }
   }
@@ -60,7 +62,8 @@ class AccountRepositoryImpl implements AccountRepository {
       );
       unawaited(syncManager.runPushOnly());
       return Right(acc);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('create', name: 'AccountRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }
@@ -99,7 +102,8 @@ class AccountRepositoryImpl implements AccountRepository {
       );
       unawaited(syncManager.runPushOnly());
       return const Right(null);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('archive id=$id', name: 'AccountRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }

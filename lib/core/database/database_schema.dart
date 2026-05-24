@@ -14,7 +14,7 @@
 class DatabaseSchema {
   DatabaseSchema._();
 
-  static const int version = 3;
+  static const int version = 4;
 
   static const List<String> createStatements = [
     // ── Cache do usuário logado ────────────────────────────────
@@ -171,7 +171,7 @@ class DatabaseSchema {
       description TEXT NOT NULL,
       amount REAL NOT NULL,
       kind TEXT NOT NULL DEFAULT 'payable',
-      due_date TEXT NOT NULL,
+      due_date TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
       paid_amount REAL NOT NULL DEFAULT 0,
       paid_at TEXT,

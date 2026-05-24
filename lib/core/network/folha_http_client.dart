@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import '../config/app_config.dart';
@@ -130,11 +131,14 @@ class FolhaHttpClient {
         body: parsed,
         rawBody: raw,
       );
-    } on SocketException {
+    } on SocketException catch (e, st) {
+      developer.log('SocketException $method $uri', name: 'FolhaHttpClient', error: e, stackTrace: st);
       throw NetworkException('Sem conexão com a Folha.Api.');
-    } on HttpException {
+    } on HttpException catch (e, st) {
+      developer.log('HttpException $method $uri', name: 'FolhaHttpClient', error: e, stackTrace: st);
       throw NetworkException('Falha na comunicação com a Folha.Api.');
-    } on TimeoutException {
+    } on TimeoutException catch (e, st) {
+      developer.log('TimeoutException $method $uri', name: 'FolhaHttpClient', error: e, stackTrace: st);
       throw NetworkException('Tempo esgotado ao falar com a Folha.Api.');
     }
   }
@@ -152,7 +156,8 @@ class FolhaHttpClient {
     if (mime != null && !mime.contains('json')) return null;
     try {
       return jsonDecode(raw);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('jsonDecode falhou (mime=$mime)', name: 'FolhaHttpClient', error: e, stackTrace: st);
       return null;
     }
   }
@@ -201,7 +206,8 @@ class FolhaHttpClient {
           await secureStorage.updateAccessToken(access);
         }
         completer.complete(access);
-      } catch (_) {
+      } catch (e, st) {
+        developer.log('refresh token falhou', name: 'FolhaHttpClient', error: e, stackTrace: st);
         completer.complete(null);
       } finally {
         _refreshing = null;

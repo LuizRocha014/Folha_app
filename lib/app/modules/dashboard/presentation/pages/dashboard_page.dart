@@ -10,6 +10,7 @@ import '../../../../../core/widgets/folha_widgets.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../shell/presentation/controllers/shell_controller.dart';
 import '../../../transactions/presentation/controllers/transactions_controller.dart';
+import '../../../transactions/presentation/pages/add_transaction_sheet.dart';
 import '../controllers/dashboard_controller.dart';
 
 class DashboardPage extends StatelessWidget {
@@ -122,15 +123,17 @@ class DashboardPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Obx(
-                        () => FolhaCurrency(
-                          value: txs.totals.balance,
+                      Obx(() {
+                        // Recomputa quando a lista muda.
+                        txs.items.length;
+                        return FolhaCurrency(
+                          value: txs.todayBalance,
                           big: true,
                           size: 54,
                           hidden: dash.balanceHidden.value,
                           color: FolhaColors.paper50,
-                        ),
-                      ),
+                        );
+                      }),
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -173,21 +176,25 @@ class DashboardPage extends StatelessWidget {
                           _QuickAction(
                             icon: LucideIcons.arrowUp,
                             label: 'Enviar',
+                            onTap: () => _openAddTransaction(context, 'expense'),
                           ),
                           const SizedBox(width: 10),
                           _QuickAction(
                             icon: LucideIcons.arrowDown,
                             label: 'Receber',
+                            onTap: () => _openAddTransaction(context, 'income'),
                           ),
                           const SizedBox(width: 10),
                           _QuickAction(
                             icon: LucideIcons.creditCard,
                             label: 'Pagar',
+                            onTap: () => shell.goTo(2),
                           ),
                           const SizedBox(width: 10),
                           _QuickAction(
                             icon: LucideIcons.moreHorizontal,
                             label: 'Mais',
+                            onTap: () => _openMoreSheet(context),
                           ),
                         ],
                       ),
@@ -350,31 +357,172 @@ class DashboardPage extends StatelessWidget {
   }
 }
 
+void _openAddTransaction(BuildContext context, String initialType) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: FolhaColors.forest900.withValues(alpha: 0.45),
+    builder: (_) => AddTransactionSheet(initialType: initialType),
+  );
+}
+
+void _openMoreSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: FolhaColors.paper100,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (sheetCtx) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: FolhaColors.ink200,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _MoreTile(
+                icon: LucideIcons.wallet,
+                color: FolhaColors.forest700,
+                title: 'Contas',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  Get.toNamed(AppRoutes.accounts);
+                },
+              ),
+              _MoreTile(
+                icon: LucideIcons.creditCard,
+                color: FolhaColors.ocre700,
+                title: 'Cartões de crédito',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  Get.toNamed(AppRoutes.creditCards);
+                },
+              ),
+              _MoreTile(
+                icon: LucideIcons.target,
+                color: FolhaColors.forest500,
+                title: 'Metas',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  Get.toNamed(AppRoutes.goals);
+                },
+              ),
+              _MoreTile(
+                icon: LucideIcons.pieChart,
+                color: FolhaColors.terra700,
+                title: 'Orçamentos',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  Get.toNamed(AppRoutes.budgets);
+                },
+              ),
+              _MoreTile(
+                icon: LucideIcons.bell,
+                color: FolhaColors.ink700,
+                title: 'Notificações',
+                onTap: () {
+                  Navigator.of(sheetCtx).pop();
+                  Get.toNamed(AppRoutes.notifications);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _QuickAction({required this.icon, required this.label});
+  final VoidCallback? onTap;
+  const _QuickAction({required this.icon, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: FolhaColors.paper50.withValues(alpha: 0.08),
+      child: Material(
+        color: FolhaColors.paper50.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 18, color: FolhaColors.paper50),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  style: FolhaTypography.body.copyWith(
+                    fontSize: 11,
+                    color: FolhaColors.paper50,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+      ),
+    );
+  }
+}
+
+class _MoreTile extends StatelessWidget {
+  const _MoreTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+        child: Row(
           children: [
-            Icon(icon, size: 18, color: FolhaColors.paper50),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: FolhaTypography.body.copyWith(
-                fontSize: 11,
-                color: FolhaColors.paper50,
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
               ),
+              child: Icon(icon, size: 18, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: FolhaTypography.body.copyWith(fontSize: 14),
+              ),
+            ),
+            const Icon(
+              LucideIcons.chevronRight,
+              size: 16,
+              color: FolhaColors.fgMuted,
             ),
           ],
         ),

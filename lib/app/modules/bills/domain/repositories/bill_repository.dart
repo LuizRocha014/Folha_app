@@ -13,7 +13,7 @@ abstract class BillRepository {
   Future<Either<Failure, BillEntity>> create({
     required String description,
     required double amount,
-    required DateTime due,
+    required DateTime? due,
     required bool isReceivable,
     String? categorySlug,
     String? accountId,
@@ -28,5 +28,12 @@ abstract class BillRepository {
   Future<Either<Failure, BillEntity>> applyPartialPayment({
     required String id,
     required double amountPaid,
+  });
+
+  /// Incrementa o valor total da bill em `delta` (positivo soma, negativo
+  /// subtrai). Usado para acumular gastos no cartão na fatura aberta.
+  Future<Either<Failure, BillEntity>> incrementAmount({
+    required String id,
+    required double delta,
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/errors/failures.dart';
@@ -30,7 +31,8 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
     try {
       final items = await local.listActive();
       return Right(items);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('list', name: 'CreditCardRepository', error: e, stackTrace: st);
       return Left(CacheFailure(e.toString()));
     }
   }
@@ -67,7 +69,8 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
       );
       unawaited(syncManager.runPushOnly());
       return Right(card);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('create', name: 'CreditCardRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }
@@ -84,7 +87,8 @@ class CreditCardRepositoryImpl implements CreditCardRepository {
       );
       unawaited(syncManager.runPushOnly());
       return const Right(null);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('archive id=$id', name: 'CreditCardRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }

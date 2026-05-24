@@ -6,23 +6,33 @@ import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/utils/folha_formatters.dart';
 import '../../../../../core/widgets/folha_widgets.dart';
+import '../../../bills/presentation/controllers/bills_controller.dart';
 import '../../../categories/presentation/widgets/new_category_dialog.dart';
+import '../../../credit_cards/domain/entities/credit_card_entity.dart';
+import '../../../credit_cards/presentation/controllers/credit_cards_controller.dart';
 import '../controllers/transactions_controller.dart';
 
 class AddTransactionSheet extends StatefulWidget {
-  const AddTransactionSheet({super.key});
+  const AddTransactionSheet({super.key, this.initialType = 'expense'});
+
+  /// 'expense' (saída) ou 'income' (entrada).
+  final String initialType;
 
   @override
   State<AddTransactionSheet> createState() => _AddTransactionSheetState();
 }
 
 class _AddTransactionSheetState extends State<AddTransactionSheet> {
-  String _type = 'expense';
+  late String _type = widget.initialType;
   String _category = 'food';
   final _amount = TextEditingController();
   final _desc = TextEditingController();
   final _place = TextEditingController();
   bool _submitting = false;
+
+  /// 'pix' | 'cash' | 'credit'. Só relevante para `_type == 'expense'`.
+  String _paymentMethod = 'pix';
+  String? _selectedCardId;
 
   /// Categorias custom criadas em runtime pela função "Nova categoria".
   /// Persistem por sessão; o banco salva via `NewCategoryDialog`.
@@ -36,9 +46,13 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
 
   /// Para **entrada** só exige o valor; descrição é opcional.
   /// Para **saída** continua exigindo descrição + valor (evita lançamentos vagos).
+  /// Pagamento via cartão exige cartão selecionado.
   bool get _valid {
     if (_submitting) return false;
     if ((_parsedAmount() ?? 0) <= 0) return false;
+    if (_type == 'expense' && _paymentMethod == 'credit' && _selectedCardId == null) {
+      return false;
+    }
     if (_type == 'income') return true;
     return _desc.text.trim().isNotEmpty;
   }
@@ -58,11 +72,37 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
       final parsed = _parsedAmount() ?? 0;
       final signed = _type == 'income' ? parsed : -parsed;
       final desc = _resolvedDescription();
+
+      // Gasto no cartão: primeiro atualiza/cria a fatura, depois grava a
+      // transação ligada à bill — excluída dos relatórios porque a bill é a
+      // fonte de verdade do que vai sair da conta.
+      String? billId;
+      String? creditCardId;
+      var excluded = false;
+      if (_type == 'expense' &&
+          _paymentMethod == 'credit' &&
+          _selectedCardId != null) {
+        final cards = Get.find<CreditCardsController>().items;
+        final card = cards.firstWhereOrNull((c) => c.id == _selectedCardId);
+        if (card != null) {
+          billId = await Get.find<BillsController>().addCreditCardExpense(
+            card: card,
+            amount: parsed,
+            spentAt: DateTime.now(),
+          );
+          creditCardId = card.id;
+          excluded = true;
+        }
+      }
+
       final ok = await controller.add(
         description: desc,
         place: _place.text.trim().isEmpty ? '—' : _place.text.trim(),
         category: _category,
         value: signed,
+        creditCardId: creditCardId,
+        billId: billId,
+        isExcludedFromReports: excluded,
       );
       if (!mounted) return;
       if (ok) {
@@ -278,6 +318,103 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
               ),
               const SizedBox(height: 14),
 
+              if (_type == 'expense') ...[
+                Text(
+                  'FORMA DE PAGAMENTO',
+                  style: FolhaTypography.eyebrow.copyWith(letterSpacing: 0.66),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _PaymentMethodChip(
+                      id: 'pix',
+                      label: 'Pix',
+                      icon: LucideIcons.zap,
+                      active: _paymentMethod == 'pix',
+                      onTap: () => setState(() {
+                        _paymentMethod = 'pix';
+                        _selectedCardId = null;
+                      }),
+                    ),
+                    _PaymentMethodChip(
+                      id: 'cash',
+                      label: 'Dinheiro',
+                      icon: LucideIcons.banknote,
+                      active: _paymentMethod == 'cash',
+                      onTap: () => setState(() {
+                        _paymentMethod = 'cash';
+                        _selectedCardId = null;
+                      }),
+                    ),
+                    _PaymentMethodChip(
+                      id: 'credit',
+                      label: 'Cartão',
+                      icon: LucideIcons.creditCard,
+                      active: _paymentMethod == 'credit',
+                      onTap: () => setState(() => _paymentMethod = 'credit'),
+                    ),
+                  ],
+                ),
+                if (_paymentMethod == 'credit') ...[
+                  const SizedBox(height: 10),
+                  Obx(() {
+                    final cards = Get.isRegistered<CreditCardsController>()
+                        ? Get.find<CreditCardsController>()
+                            .items
+                            .where((c) => !c.isArchived)
+                            .toList()
+                        : <CreditCardEntity>[];
+                    if (cards.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: FolhaColors.paper200,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: FolhaColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              LucideIcons.info,
+                              size: 16,
+                              color: FolhaColors.fgMuted,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Cadastre um cartão de crédito antes para usar essa forma de pagamento.',
+                                style: FolhaTypography.bodySm.copyWith(
+                                  fontSize: 12,
+                                  color: FolhaColors.fgMuted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: cards
+                          .map(
+                            (card) => _CreditCardChip(
+                              card: card,
+                              active: _selectedCardId == card.id,
+                              onTap: () => setState(
+                                () => _selectedCardId = card.id,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    );
+                  }),
+                ],
+                const SizedBox(height: 14),
+              ],
+
               Row(
                 children: [
                   Expanded(
@@ -427,6 +564,107 @@ class _TypeBtn extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentMethodChip extends StatelessWidget {
+  const _PaymentMethodChip({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String id;
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? FolhaColors.forest200 : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: active ? FolhaColors.forest700 : FolhaColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: active ? FolhaColors.forest700 : FolhaColors.ink700,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: FolhaTypography.body.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: active ? FolhaColors.forest700 : FolhaColors.ink700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CreditCardChip extends StatelessWidget {
+  const _CreditCardChip({
+    required this.card,
+    required this.active,
+    required this.onTap,
+  });
+
+  final CreditCardEntity card;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final last = card.lastFour == null ? '' : ' ····${card.lastFour}';
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? FolhaColors.ocre100 : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: active ? FolhaColors.ocre700 : FolhaColors.border,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.creditCard,
+              size: 14,
+              color: active ? FolhaColors.ocre700 : FolhaColors.ink700,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${card.name}$last',
+              style: FolhaTypography.body.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: active ? FolhaColors.ocre700 : FolhaColors.ink700,
+              ),
+            ),
+          ],
         ),
       ),
     );

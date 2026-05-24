@@ -57,6 +57,9 @@ class TransactionsController extends GetxController {
     required String place,
     required String category,
     required double value,
+    String? creditCardId,
+    String? billId,
+    bool isExcludedFromReports = false,
   }) async {
     final res = await addUC(
       AddTransactionParams(
@@ -64,6 +67,9 @@ class TransactionsController extends GetxController {
         place: place,
         category: category,
         value: value,
+        creditCardId: creditCardId,
+        billId: billId,
+        isExcludedFromReports: isExcludedFromReports,
       ),
     );
     return res.fold(
@@ -157,6 +163,19 @@ class TransactionsController extends GetxController {
       .where((t) => !t.isExcludedFromReports)
       .fold<double>(0, (a, b) => a + b.value);
 
+  /// Soma líquida (recebido − pago) de todas as movimentações de hoje,
+  /// incluindo pagamentos/recebimentos de bills — bate com o que o usuário
+  /// vê na lista de movimentos do dia.
+  double get todayBalance {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final end = start.add(const Duration(days: 1));
+    return items.where((t) {
+      final w = t.when.toLocal();
+      return !w.isBefore(start) && w.isBefore(end);
+    }).fold<double>(0, (a, b) => a + b.value);
+  }
+
   /// Saldo líquido dos últimos 7 dias (positivo = ganhou mais do que gastou).
   /// Também ignora transações excluídas de relatórios.
   double get weekDelta {
@@ -182,8 +201,7 @@ class TransactionsController extends GetxController {
     final today = DateTime(now.year, now.month, now.day);
     final buckets = List<double>.filled(7, 0);
     for (final t in items) {
-      if (t.value >= 0) continue; // só saídas
-      if (t.isExcludedFromReports) continue; // pagamento de bill, etc.
+      if (t.value >= 0) continue; // só saídas — inclui pagamento de bills.
       final localWhen = t.when.toLocal();
       final d = DateTime(localWhen.year, localWhen.month, localWhen.day);
       final diff = today.difference(d).inDays;

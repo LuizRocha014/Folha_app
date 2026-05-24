@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:get/get.dart';
 import '../network/connectivity_service.dart';
 import 'entity_syncer.dart';
@@ -57,7 +58,8 @@ class SyncManager extends GetxService {
       for (final syncer in ordered) {
         try {
           await syncer.pullAll();
-        } catch (e) {
+        } catch (e, st) {
+          developer.log('pullAll ${syncer.entityName}', name: 'SyncManager', error: e, stackTrace: st);
           lastError.value = '${syncer.entityName}: $e';
         }
       }
@@ -97,7 +99,8 @@ class SyncManager extends GetxService {
         try {
           await syncer.pushEntry(entry);
           await outbox.markProcessed(entry.id);
-        } catch (e) {
+        } catch (e, st) {
+          developer.log('pushEntry ${entry.entity} id=${entry.entityId}', name: 'SyncManager', error: e, stackTrace: st);
           await outbox.markFailed(entry.id, e.toString());
           // Para evitar loop infinito em erros persistentes, descartamos após 5 tentativas.
           if (entry.attempts + 1 >= 5) {

@@ -28,7 +28,11 @@ class BillEntity extends Equatable {
   final String userId;
   final String description;
   final double amount;
-  final DateTime due;
+
+  /// Vencimento. `null` quando o usuário ainda não definiu uma data
+  /// (ex.: conta avulsa sem boleto). UI deve renderizar "Sem vencimento"
+  /// e nunca marcar como overdue.
+  final DateTime? due;
   final BillStatus status;
   final String? recurring;
   final String? categorySlug;
@@ -52,7 +56,7 @@ class BillEntity extends Equatable {
     required this.userId,
     required this.description,
     required this.amount,
-    required this.due,
+    this.due,
     required this.status,
     this.recurring,
     this.categorySlug,

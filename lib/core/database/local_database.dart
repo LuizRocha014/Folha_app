@@ -1,9 +1,12 @@
+import 'dart:developer' as developer;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../security/crypto_utils.dart';
 import '../security/secure_storage_service.dart';
 import 'database_schema.dart';
+
+const String _migrationLog = 'LocalDatabase.migration';
 
 /// LocalDatabase — banco SQLite encriptado (SQLCipher) por usuário.
 ///
@@ -47,33 +50,121 @@ class LocalDatabase {
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
-      onCreate: (db, _) async {
+      onCreate: (db, version) async {
+        developer.log(
+          'onCreate user=$userId version=$version — criando schema inicial',
+          name: _migrationLog,
+        );
         for (final stmt in DatabaseSchema.createStatements) {
-          await db.execute(stmt);
+          await _runMigrationStep(db, stmt);
         }
+        developer.log(
+          'onCreate concluído user=$userId version=$version',
+          name: _migrationLog,
+        );
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        developer.log(
+          'onUpgrade user=$userId $oldVersion → $newVersion — iniciando',
+          name: _migrationLog,
+        );
         // v1 → v2: campos de rendimento na tabela `goals`.
         if (oldVersion < 2) {
-          await db.execute(
+          developer.log('v1 → v2: ajustes em `goals`', name: _migrationLog);
+          await _runMigrationStep(
+            db,
             'ALTER TABLE goals ADD COLUMN monthly_yield_percent REAL',
           );
-          await db.execute(
+          await _runMigrationStep(
+            db,
             'ALTER TABLE goals ADD COLUMN is_cdb INTEGER NOT NULL DEFAULT 0',
           );
         }
         // v2 → v3: pagamento parcial + parcelas em `bills`.
         if (oldVersion < 3) {
-          await db.execute(
+          developer.log(
+            'v2 → v3: pagamento parcial + parcelas em `bills`',
+            name: _migrationLog,
+          );
+          await _runMigrationStep(
+            db,
             'ALTER TABLE bills ADD COLUMN paid_amount REAL NOT NULL DEFAULT 0',
           );
-          await db.execute(
+          await _runMigrationStep(
+            db,
             'ALTER TABLE bills ADD COLUMN installment_current INTEGER',
           );
-          await db.execute(
+          await _runMigrationStep(
+            db,
             'ALTER TABLE bills ADD COLUMN installment_total INTEGER',
           );
         }
+        // v3 → v4: `bills.due_date` passa a aceitar NULL (contas sem
+        // vencimento). SQLite não permite alterar NOT NULL via ALTER, então
+        // recriamos a tabela copiando os dados.
+        if (oldVersion < 4) {
+          developer.log(
+            'v3 → v4: `bills.due_date` agora aceita NULL — recriando tabela',
+            name: _migrationLog,
+          );
+          await _runMigrationStep(db, 'DROP INDEX IF EXISTS idx_bills_user_due');
+          await _runMigrationStep(
+            db,
+            'ALTER TABLE bills RENAME TO bills_old_v3',
+          );
+          await _runMigrationStep(db, '''
+            CREATE TABLE bills (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              account_id TEXT,
+              category_slug TEXT,
+              recurrence_id TEXT,
+              description TEXT NOT NULL,
+              amount REAL NOT NULL,
+              kind TEXT NOT NULL DEFAULT 'payable',
+              due_date TEXT,
+              status TEXT NOT NULL DEFAULT 'pending',
+              paid_amount REAL NOT NULL DEFAULT 0,
+              paid_at TEXT,
+              paid_transaction_id TEXT,
+              installment_current INTEGER,
+              installment_total INTEGER,
+              notes TEXT,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              _sync_status TEXT NOT NULL DEFAULT 'synced',
+              _local_updated_at INTEGER NOT NULL DEFAULT 0,
+              _server_updated_at INTEGER
+            )
+          ''');
+          await _runMigrationStep(db, '''
+            INSERT INTO bills (
+              id, user_id, account_id, category_slug, recurrence_id,
+              description, amount, kind, due_date, status,
+              paid_amount, paid_at, paid_transaction_id,
+              installment_current, installment_total, notes,
+              created_at, updated_at,
+              _sync_status, _local_updated_at, _server_updated_at
+            )
+            SELECT
+              id, user_id, account_id, category_slug, recurrence_id,
+              description, amount, kind, due_date, status,
+              paid_amount, paid_at, paid_transaction_id,
+              installment_current, installment_total, notes,
+              created_at, updated_at,
+              _sync_status, _local_updated_at, _server_updated_at
+            FROM bills_old_v3
+          ''');
+          await _runMigrationStep(db, 'DROP TABLE bills_old_v3');
+          await _runMigrationStep(
+            db,
+            'CREATE INDEX IF NOT EXISTS idx_bills_user_due ON bills(user_id, due_date)',
+          );
+        }
+        developer.log(
+          'onUpgrade concluído user=$userId $oldVersion → $newVersion',
+          name: _migrationLog,
+        );
       },
     );
 
@@ -81,6 +172,47 @@ class LocalDatabase {
   }
 
   Future<void> close() => _db.close();
+
+  /// Executa um statement de migration logando o resumo (tipo de comando +
+  /// objeto afetado) e medindo o tempo. Se falhar, loga o erro com o SQL
+  /// completo antes de propagar.
+  static Future<void> _runMigrationStep(Database db, String sql) async {
+    final summary = _summarizeSql(sql);
+    final sw = Stopwatch()..start();
+    try {
+      await db.execute(sql);
+      sw.stop();
+      developer.log(
+        '✓ $summary (${sw.elapsedMilliseconds}ms)',
+        name: _migrationLog,
+      );
+    } catch (e, st) {
+      sw.stop();
+      developer.log(
+        '✗ $summary falhou (${sw.elapsedMilliseconds}ms)\nSQL: $sql',
+        name: _migrationLog,
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  /// Extrai `<COMANDO> <OBJETO>` de um statement SQL para logs compactos.
+  /// Ex.: `CREATE TABLE bills` ou `ALTER TABLE goals`.
+  static String _summarizeSql(String sql) {
+    final normalized = sql.trim().replaceAll(RegExp(r'\s+'), ' ');
+    final match = RegExp(
+      r'^(CREATE\s+(?:UNIQUE\s+)?(?:TABLE|INDEX)(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+(?:TABLE|INDEX)(?:\s+IF\s+EXISTS)?|INSERT\s+INTO)\s+([^\s(]+)',
+      caseSensitive: false,
+    ).firstMatch(normalized);
+    if (match == null) {
+      return normalized.length > 60
+          ? '${normalized.substring(0, 60)}…'
+          : normalized;
+    }
+    return '${match.group(1)!.toUpperCase()} ${match.group(2)}';
+  }
 
   /// Limpa todos os dados do banco (mantém schema). Útil em logout "esquecer dados".
   Future<void> wipeAllData() async {

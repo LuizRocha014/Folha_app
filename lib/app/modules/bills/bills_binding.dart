@@ -45,6 +45,7 @@ class BillsBinding extends Bindings {
           updateUC: Get.find(),
           createUC: Get.find(),
           payPartialUC: Get.find(),
+          repository: Get.find<BillRepository>(),
           syncManager: Get.find<SyncManager>(),
         ),
         permanent: true,

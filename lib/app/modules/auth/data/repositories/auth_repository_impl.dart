@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:dartz/dartz.dart';
 import '../../../../../core/database/local_database.dart';
 import '../../../../../core/errors/exceptions.dart';
@@ -45,13 +47,17 @@ class AuthRepositoryImpl implements AuthRepository {
         await local.upsertUserInDb(session.user);
       }
       return Right(session.user);
-    } on AuthException catch (e) {
+    } on AuthException catch (e, st) {
+      developer.log('login: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(AuthFailure(e.message));
-    } on NetworkException catch (e) {
+    } on NetworkException catch (e, st) {
+      developer.log('login: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(NetworkFailure(e.message));
-    } on ServerException catch (e) {
+    } on ServerException catch (e, st) {
+      developer.log('login: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(ServerFailure(e.message));
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('login: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -74,13 +80,17 @@ class AuthRepositoryImpl implements AuthRepository {
       return await login(email: email, password: password).then((either) {
         return either.fold((f) => Right(created), Right.new);
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, st) {
+      developer.log('signup: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(AuthFailure(e.message));
-    } on NetworkException catch (e) {
+    } on NetworkException catch (e, st) {
+      developer.log('signup: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(NetworkFailure(e.message));
-    } on ServerException catch (e) {
+    } on ServerException catch (e, st) {
+      developer.log('signup: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(ServerFailure(e.message));
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('signup: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -108,13 +118,16 @@ class AuthRepositoryImpl implements AuthRepository {
         );
         await local.upsertUserInDb(fresh);
         return Right(fresh);
-      } on NetworkException {
+      } on NetworkException catch (e, st) {
+        developer.log('restoreSession: NetworkException (cai offline)', name: 'AuthRepository', error: e, stackTrace: st);
         return Right(user); // offline OK
-      } on AuthException {
+      } on AuthException catch (e, st) {
+        developer.log('restoreSession: AuthException (limpando sessão)', name: 'AuthRepository', error: e, stackTrace: st);
         await local.clearSession();
         return const Right(null);
       }
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('restoreSession: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -133,7 +146,8 @@ class AuthRepositoryImpl implements AuthRepository {
       await local.clearSession();
       await secureStorage.setBiometricEnabled(false);
       return const Right(null);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('logout', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -143,7 +157,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final cached = await local.readCachedUser();
       return Right(cached);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('currentUser', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -168,7 +183,8 @@ class AuthRepositoryImpl implements AuthRepository {
       await secureStorage.saveBiometricPassword(user.id, email, password);
       await secureStorage.setBiometricEnabled(true);
       return const Right(null);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('enableBiometric', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -182,7 +198,8 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       await secureStorage.setBiometricEnabled(false);
       return const Right(null);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('disableBiometric', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
@@ -211,7 +228,8 @@ class AuthRepositoryImpl implements AuthRepository {
       if (!ok) return const Left(AuthFailure('Biometria não confirmada.'));
 
       return await login(email: creds.$1, password: creds.$2);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('loginWithBiometric', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }

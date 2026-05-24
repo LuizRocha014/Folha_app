@@ -28,6 +28,7 @@ class _AddBillSheetState extends State<AddBillSheet> {
   String? _category = 'home';
   String? _recurrence; // 'monthly' | 'weekly' | 'yearly' | null
   DateTime _due = DateTime.now().add(const Duration(days: 7));
+  bool _noDueDate = false;
 
   final _desc = TextEditingController();
   final _amount = TextEditingController();
@@ -83,7 +84,7 @@ class _AddBillSheetState extends State<AddBillSheet> {
       final ok = await controller.create(
         description: _desc.text.trim(),
         amount: _parsedAmount!,
-        due: _due,
+        due: _noDueDate ? null : _due,
         isReceivable: _kind == 'receive',
         categorySlug: _category,
         notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
@@ -272,43 +273,78 @@ class _AddBillSheetState extends State<AddBillSheet> {
               ),
               const SizedBox(height: 12),
 
-              // Data de vencimento
+              // Data de vencimento (opcional)
               FolhaField(
                 label: _kind == 'pay' ? 'Vencimento' : 'Recebimento previsto',
                 child: InkWell(
-                  onTap: _pickDate,
+                  onTap: _noDueDate ? null : _pickDate,
                   borderRadius: BorderRadius.circular(12),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                     decoration: BoxDecoration(
-                      color: FolhaColors.paper50,
+                      color: _noDueDate ? FolhaColors.paper200 : FolhaColors.paper50,
                       border: Border.all(color: FolhaColors.border),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.calendar,
                           size: 18,
-                          color: FolhaColors.ink700,
+                          color: _noDueDate ? FolhaColors.ink400 : FolhaColors.ink700,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            '${FolhaFormatters.relativeDay(_due)} · '
-                            '${_due.day.toString().padLeft(2, '0')}/'
-                            '${_due.month.toString().padLeft(2, '0')}/'
-                            '${_due.year}',
-                            style: FolhaTypography.body.copyWith(fontSize: 14),
+                            _noDueDate
+                                ? 'Sem vencimento'
+                                : '${FolhaFormatters.relativeDay(_due)} · '
+                                    '${_due.day.toString().padLeft(2, '0')}/'
+                                    '${_due.month.toString().padLeft(2, '0')}/'
+                                    '${_due.year}',
+                            style: FolhaTypography.body.copyWith(
+                              fontSize: 14,
+                              color: _noDueDate ? FolhaColors.fgMuted : FolhaColors.ink900,
+                              fontStyle: _noDueDate ? FontStyle.italic : FontStyle.normal,
+                            ),
                           ),
                         ),
-                        const Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
-                          color: FolhaColors.fgMuted,
-                        ),
+                        if (!_noDueDate)
+                          const Icon(
+                            LucideIcons.chevronRight,
+                            size: 16,
+                            color: FolhaColors.fgMuted,
+                          ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => setState(() => _noDueDate = !_noDueDate),
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _noDueDate
+                            ? LucideIcons.squareCheckBig
+                            : LucideIcons.square,
+                        size: 20,
+                        color: _noDueDate
+                            ? FolhaColors.forest700
+                            : FolhaColors.ink400,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Conta sem data de vencimento',
+                          style: FolhaTypography.body.copyWith(fontSize: 13),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

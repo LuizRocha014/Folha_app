@@ -14,6 +14,9 @@ abstract class TransactionRepository {
     // conta fixa, passamos o id da bill e marcamos como excluída dos relatórios
     // — a bill já é a fonte de verdade no gráfico/saldo.
     String? billId,
+    /// Gasto no cartão de crédito — a bill da fatura é a fonte de verdade do
+    /// saldo, então a transação fica excluída dos relatórios.
+    String? creditCardId,
     bool isExcludedFromReports = false,
     /// Sobrepõe o `kind` inferido por sinal (income/expense). Útil para marcar
     /// pagamento de bill como `transfer_out`/`transfer_in`.

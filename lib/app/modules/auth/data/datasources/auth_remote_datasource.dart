@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../../../../../core/errors/exceptions.dart';
 import '../../../../../core/network/base_remote_service.dart';
 import '../models/auth_session.dart';
@@ -34,10 +36,12 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
         anonymous: true,
       );
       return AuthSession.fromLoginResponse(json);
-    } on AuthException {
+    } on AuthException catch (e, st) {
+      developer.log('login: AuthException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
       // 401 no login = credenciais inválidas (semântica de domínio).
       throw AuthException('Email ou senha inválidos.');
-    } on ServerException catch (e) {
+    } on ServerException catch (e, st) {
+      developer.log('login: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
       // 400 com payload de validação volta como ServerException — re-traduz.
       throw AuthException(e.message);
     }
@@ -62,7 +66,8 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
         anonymous: true,
       );
       return UserModel.fromJson(json);
-    } on ServerException catch (e) {
+    } on ServerException catch (e, st) {
+      developer.log('signup: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
       // Validation / email duplicado vem como 400.
       throw AuthException(e.message);
     }
@@ -82,7 +87,8 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
         body: {'refreshToken': refreshToken},
         anonymous: true,
       );
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('logout silencioso', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
       // Logout silencioso — o que importa é apagar a sessão local.
     }
   }

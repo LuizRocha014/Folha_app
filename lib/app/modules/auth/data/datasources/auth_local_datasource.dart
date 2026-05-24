@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../../../../core/database/local_database.dart';
 import '../../../../../core/security/secure_storage_service.dart';
@@ -35,7 +36,8 @@ class AuthLocalDataSource {
     if (raw == null) return null;
     try {
       return UserModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('readCachedUser: falha decodificando JSON', name: 'AuthLocalDataSource', error: e, stackTrace: st);
       return null;
     }
   }

@@ -6,7 +6,7 @@ class BillModel extends BillEntity {
     required super.userId,
     required super.description,
     required super.amount,
-    required super.due,
+    super.due,
     required super.status,
     super.recurring,
     super.categorySlug,
@@ -23,12 +23,13 @@ class BillModel extends BillEntity {
     final amount = (json['amount'] as num).toDouble();
     final kind = json['kind'] as String;
     final signed = kind == 'receivable' ? -amount : amount;
+    final dueRaw = json['dueDate'] as String?;
     return BillModel(
       id: json['id'] as String,
       userId: json['userId'] as String,
       description: (json['description'] as String?) ?? '',
       amount: signed,
-      due: DateTime.parse(json['dueDate'] as String),
+      due: dueRaw == null ? null : DateTime.parse(dueRaw),
       status: BillStatusX.parse(json['status'] as String),
       categorySlug: categorySlug,
       accountId: json['accountId'] as String?,
@@ -53,7 +54,7 @@ class BillModel extends BillEntity {
       'description': description,
       'amount': amount.abs(),
       'kind': kind,
-      'dueDate': due.toUtc().toIso8601String(),
+      'dueDate': due?.toUtc().toIso8601String(),
       'notes': notes,
       'installmentCurrent': installmentCurrent,
       'installmentTotal': installmentTotal,
@@ -69,7 +70,7 @@ class BillModel extends BillEntity {
       'description': description,
       'amount': amount.abs(),
       'kind': kind,
-      'dueDate': due.toUtc().toIso8601String(),
+      'dueDate': due?.toUtc().toIso8601String(),
       'status': status.id,
       'paidAt': isSettled ? DateTime.now().toUtc().toIso8601String() : null,
       'paidAmount': paidAmount,
@@ -84,12 +85,13 @@ class BillModel extends BillEntity {
     final amount = (row['amount'] as num).toDouble();
     final kind = row['kind'] as String;
     final signed = kind == 'receivable' ? -amount : amount;
+    final dueRaw = row['due_date'] as String?;
     return BillModel(
       id: row['id'] as String,
       userId: row['user_id'] as String,
       description: row['description'] as String,
       amount: signed,
-      due: DateTime.parse(row['due_date'] as String),
+      due: dueRaw == null ? null : DateTime.parse(dueRaw),
       status: BillStatusX.parse(row['status'] as String),
       categorySlug: row['category_slug'] as String?,
       accountId: row['account_id'] as String?,
@@ -113,7 +115,7 @@ class BillModel extends BillEntity {
       'description': description,
       'amount': amount.abs(),
       'kind': kind,
-      'due_date': due.toUtc().toIso8601String(),
+      'due_date': due?.toUtc().toIso8601String(),
       'status': status.id,
       'paid_amount': paidAmount,
       'paid_at': isSettled ? now : null,

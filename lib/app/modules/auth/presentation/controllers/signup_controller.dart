@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:get/get.dart';
 import 'auth_controller.dart';
 
@@ -55,7 +57,8 @@ class SignupController extends GetxController {
         int.parse(parts[1]),
         int.parse(parts[0]),
       );
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('_parseBirth value=${birth.value}', name: 'SignupController', error: e, stackTrace: st);
       return null;
     }
   }

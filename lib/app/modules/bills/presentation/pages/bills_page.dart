@@ -78,7 +78,7 @@ class BillsPage extends GetView<BillsController> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'A PAGAR ESSE MÊS',
+                            controller.summaryEyebrow,
                             style: FolhaTypography.eyebrow.copyWith(
                               color: FolhaColors.paper300,
                               letterSpacing: 1.1,
@@ -127,9 +127,27 @@ class BillsPage extends GetView<BillsController> {
               ),
             ),
 
+            // Filtro por vencimento — recorte do que é exibido no summary
+            // e na lista. Default é o mês corrente.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _DateFilterChip(id: 'monthDue', label: 'Este mês'),
+                    const SizedBox(width: 8),
+                    _DateFilterChip(id: 'noDue', label: 'Sem vencimento'),
+                    const SizedBox(width: 8),
+                    _DateFilterChip(id: 'all', label: 'Todas'),
+                  ],
+                ),
+              ),
+            ),
+
             // Tab switcher
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -175,7 +193,12 @@ class BillsPage extends GetView<BillsController> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Sem contas ${controller.tab.value == 'pay' ? 'a pagar' : 'a receber'}.',
+                        'Sem contas ${controller.tab.value == 'pay' ? 'a pagar' : 'a receber'}'
+                        '${switch (controller.dateFilter.value) {
+                          'monthDue' => ' este mês',
+                          'noDue' => ' sem vencimento',
+                          _ => '',
+                        }}.',
                         style: FolhaTypography.titleEditorial(
                           size: 16,
                           color: FolhaColors.ink700,
@@ -186,6 +209,40 @@ class BillsPage extends GetView<BillsController> {
                 ),
               ),
           ],
+        ),
+      );
+    });
+  }
+}
+
+class _DateFilterChip extends GetView<BillsController> {
+  final String id;
+  final String label;
+  const _DateFilterChip({required this.id, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final active = controller.dateFilter.value == id;
+      return GestureDetector(
+        onTap: () => controller.dateFilter.value = id,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? FolhaColors.forest200 : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: active ? FolhaColors.forest700 : FolhaColors.border,
+            ),
+          ),
+          child: Text(
+            label,
+            style: FolhaTypography.body.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: active ? FolhaColors.forest700 : FolhaColors.ink700,
+            ),
+          ),
         ),
       );
     });
@@ -489,7 +546,9 @@ class _BillCard extends GetView<BillsController> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${overdue ? "Venceu" : "Vence"} ${FolhaFormatters.relativeDay(bill.due).toLowerCase()}',
+                        bill.due == null
+                            ? 'Sem vencimento'
+                            : '${overdue ? "Venceu" : "Vence"} ${FolhaFormatters.relativeDay(bill.due!).toLowerCase()}',
                         style: FolhaTypography.bodySm.copyWith(
                           fontSize: 12,
                           color: overdue
@@ -497,6 +556,9 @@ class _BillCard extends GetView<BillsController> {
                               : FolhaColors.fgMuted,
                           fontWeight:
                               overdue ? FontWeight.w500 : FontWeight.w400,
+                          fontStyle: bill.due == null
+                              ? FontStyle.italic
+                              : FontStyle.normal,
                         ),
                       ),
                     ],

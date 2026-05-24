@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import '../accounts/accounts_binding.dart';
 import '../bills/bills_binding.dart';
+import '../credit_cards/credit_cards_binding.dart';
 import '../transactions/transactions_binding.dart';
 import 'presentation/controllers/shell_controller.dart';
 
@@ -15,5 +16,8 @@ class ShellBinding extends Bindings {
     TransactionsBinding().dependencies();
     BillsBinding().dependencies();
     AccountsBinding().dependencies();
+    // Cartões precisam estar disponíveis no AddTransactionSheet (forma de
+    // pagamento "Cartão") sem o usuário ter navegado até a tela de cartões.
+    CreditCardsBinding().dependencies();
   }
 }

@@ -20,16 +20,30 @@ class AddTransactionParams extends Equatable {
   final String place;
   final String category;
   final double value;
+  final String? creditCardId;
+  final String? billId;
+  final bool isExcludedFromReports;
 
   const AddTransactionParams({
     required this.description,
     required this.place,
     required this.category,
     required this.value,
+    this.creditCardId,
+    this.billId,
+    this.isExcludedFromReports = false,
   });
 
   @override
-  List<Object?> get props => [description, place, category, value];
+  List<Object?> get props => [
+        description,
+        place,
+        category,
+        value,
+        creditCardId,
+        billId,
+        isExcludedFromReports,
+      ];
 }
 
 class AddTransactionUseCase
@@ -50,6 +64,9 @@ class AddTransactionUseCase
       place: params.place,
       category: params.category,
       value: params.value,
+      creditCardId: params.creditCardId,
+      billId: params.billId,
+      isExcludedFromReports: params.isExcludedFromReports,
     );
   }
 }

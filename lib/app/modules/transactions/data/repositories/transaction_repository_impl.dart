@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../../core/errors/exceptions.dart';
@@ -39,7 +40,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       final items = await local.list();
       return Right(items);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('list', name: 'TransactionRepository', error: e, stackTrace: st);
       return Left(CacheFailure(e.toString()));
     }
   }
@@ -51,6 +53,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     required String category,
     required double value,
     String? billId,
+    String? creditCardId,
     bool isExcludedFromReports = false,
     String? kindOverride,
   }) async {
@@ -65,6 +68,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         when: DateTime.now(),
         kind: kindOverride ?? (value >= 0 ? 'income' : 'expense'),
         billId: billId,
+        creditCardId: creditCardId,
         isExcludedFromReports: isExcludedFromReports,
         syncStatus: SyncStatus.pendingCreate,
       );
@@ -79,14 +83,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
           'category_slug': category,
           'value': value,
           'bill_id': ?billId,
+          'credit_card_id': ?creditCardId,
           if (isExcludedFromReports) 'excluded': true,
         },
       );
       unawaited(syncManager.runPushOnly());
       return Right(tx);
-    } on NetworkException {
+    } on NetworkException catch (e, st) {
+      developer.log('add: NetworkException', name: 'TransactionRepository', error: e, stackTrace: st);
       return const Left(NetworkFailure());
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('add', name: 'TransactionRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }
@@ -112,7 +119,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       );
       unawaited(syncManager.runPushOnly());
       return const Right(null);
-    } catch (e) {
+    } catch (e, st) {
+      developer.log('remove id=$id', name: 'TransactionRepository', error: e, stackTrace: st);
       return Left(UnknownFailure(e.toString()));
     }
   }

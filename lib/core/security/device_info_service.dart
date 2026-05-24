@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:uuid/uuid.dart';
 import 'secure_storage_service.dart';
@@ -25,11 +27,13 @@ class DeviceInfoService {
     try {
       final android = await info.androidInfo;
       return 'Android ${android.version.release} · ${android.manufacturer} ${android.model}';
-    } catch (_) {
+    } catch (e, st) {
+      developer.log('androidInfo falhou', name: 'DeviceInfoService', error: e, stackTrace: st);
       try {
         final ios = await info.iosInfo;
         return 'iOS ${ios.systemVersion} · ${ios.utsname.machine}';
-      } catch (_) {
+      } catch (e2, st2) {
+        developer.log('iosInfo falhou', name: 'DeviceInfoService', error: e2, stackTrace: st2);
         return 'unknown-device';
       }
     }
