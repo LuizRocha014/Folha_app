@@ -56,6 +56,18 @@ class CreditCardModel extends CreditCardEntity {
         'dueDay': dueDay,
       };
 
+  /// Serializa pro `UpdateCreditCardRequest` da API.
+  Map<String, dynamic> toApiUpdateJson() => {
+        'accountId': accountId,
+        'name': name,
+        'brand': brand,
+        'lastFour': lastFour,
+        'creditLimit': creditLimit,
+        'closingDay': closingDay,
+        'dueDay': dueDay,
+        'isArchived': isArchived,
+      };
+
   Map<String, dynamic> toRow() {
     final now = DateTime.now().toUtc().toIso8601String();
     return {

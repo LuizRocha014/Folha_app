@@ -40,8 +40,7 @@ class GoalModel extends GoalEntity {
         syncStatus: (row['_sync_status'] as String?) ?? 'synced',
       );
 
-  /// Payload de criação para a API. Campos de rendimento ainda não existem
-  /// no backend — mantidos só em local até a API expor.
+  /// Payload de criação para a API.
   Map<String, dynamic> toApiCreateJson() => {
         // Id do cliente — alinhado com o backend (Id opcional).
         'id': id,
@@ -52,6 +51,8 @@ class GoalModel extends GoalEntity {
         'targetDate': targetDate?.toUtc().toIso8601String(),
         'icon': icon,
         'colorHex': colorHex,
+        'monthlyYieldPercent': monthlyYieldPercent,
+        'isCdb': isCdb,
       };
 
   Map<String, dynamic> toRow() {

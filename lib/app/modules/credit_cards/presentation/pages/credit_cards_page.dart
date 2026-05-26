@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/routes/app_routes.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/utils/folha_formatters.dart';
@@ -81,7 +82,9 @@ class CreditCardsPage extends GetView<CreditCardsController> {
               final card = controller.items[i];
               return _CardTile(
                 card: card,
+                monthInstallment: controller.monthInstallments[card.id],
                 onArchive: () => _confirmArchive(context, card),
+                onTap: () => Get.toNamed(AppRoutes.cardInvoice, arguments: card),
               );
             },
           ),
@@ -141,86 +144,132 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _CardTile extends StatelessWidget {
-  const _CardTile({required this.card, required this.onArchive});
+  const _CardTile({
+    required this.card,
+    required this.onArchive,
+    required this.onTap,
+    this.monthInstallment,
+  });
   final CreditCardEntity card;
   final VoidCallback onArchive;
+  final VoidCallback onTap;
+  final double? monthInstallment;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: FolhaColors.paper50,
-        border: Border.all(color: FolhaColors.border),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: FolhaColors.paper50,
+          border: Border.all(color: FolhaColors.border),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: FolhaColors.forest700,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(LucideIcons.creditCard, size: 18, color: FolhaColors.paper50),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        card.name,
+                        style: FolhaTypography.body.copyWith(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${card.brand.toUpperCase()}'
+                        '${card.lastFour != null ? ' · **** ${card.lastFour}' : ''}',
+                        style: FolhaTypography.bodySm.copyWith(
+                          fontSize: 12,
+                          color: FolhaColors.fgMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  FolhaFormatters.brl(card.creditLimit),
+                  style: FolhaTypography.body.copyWith(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(width: 6),
+                const Icon(LucideIcons.chevronRight, size: 18, color: FolhaColors.ink400),
+              ],
+            ),
+            if ((monthInstallment ?? 0) > 0) ...[
+              const SizedBox(height: 10),
               Container(
-                width: 38,
-                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: FolhaColors.forest700,
+                  color: FolhaColors.forest200,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(LucideIcons.creditCard, size: 18, color: FolhaColors.paper50),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      card.name,
-                      style: FolhaTypography.body.copyWith(fontWeight: FontWeight.w500),
+                    const Icon(LucideIcons.layers, size: 15, color: FolhaColors.forest700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Parcelas fixas do mês',
+                        style: FolhaTypography.bodySm.copyWith(
+                          fontSize: 12,
+                          color: FolhaColors.forest700,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
-                      '${card.brand.toUpperCase()}'
-                      '${card.lastFour != null ? ' · **** ${card.lastFour}' : ''}',
-                      style: FolhaTypography.bodySm.copyWith(
-                        fontSize: 12,
-                        color: FolhaColors.fgMuted,
+                      FolhaFormatters.brl(monthInstallment!),
+                      style: FolhaTypography.body.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: FolhaColors.forest700,
                       ),
                     ),
                   ],
                 ),
               ),
-              Text(
-                FolhaFormatters.brl(card.creditLimit),
-                style: FolhaTypography.body.copyWith(fontWeight: FontWeight.w500),
-              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MetaBox(
-                  label: 'FECHAMENTO',
-                  value: 'dia ${card.closingDay}',
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _MetaBox(
+                    label: 'FECHAMENTO',
+                    value: 'dia ${card.closingDay}',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MetaBox(
-                  label: 'VENCIMENTO',
-                  value: 'dia ${card.dueDay}',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MetaBox(
+                    label: 'VENCIMENTO',
+                    value: 'dia ${card.dueDay}',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              FolhaIconBtn(
-                icon: LucideIcons.trash2,
-                variant: FolhaIconBtnVariant.soft,
-                size: 36,
-                onPressed: onArchive,
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 10),
+                FolhaIconBtn(
+                  icon: LucideIcons.trash2,
+                  variant: FolhaIconBtnVariant.soft,
+                  size: 36,
+                  onPressed: onArchive,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

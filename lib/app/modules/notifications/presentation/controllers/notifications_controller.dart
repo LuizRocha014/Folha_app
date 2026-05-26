@@ -1,16 +1,23 @@
-import 'dart:developer' as developer;
+import 'dart:async';
 
 import 'package:get/get.dart';
+import '../../../../../core/sync/outbox_repository.dart';
+import '../../../../../core/sync/sync_manager.dart';
+import '../../../../../core/sync/sync_status.dart';
 import '../../data/datasources/notification_local_datasource.dart';
-import '../../data/datasources/notification_remote_datasource.dart';
 import '../../data/models/notification_model.dart';
 import '../../domain/entities/notification_entity.dart';
 
 class NotificationsController extends GetxController {
-  NotificationsController({required this.local, required this.remote});
+  NotificationsController({
+    required this.local,
+    required this.outbox,
+    required this.syncManager,
+  });
 
   final NotificationLocalDataSource local;
-  final NotificationRemoteDataSource remote;
+  final OutboxRepository outbox;
+  final SyncManager syncManager;
 
   final RxList<NotificationEntity> items = <NotificationEntity>[].obs;
   final RxBool loading = false.obs;
@@ -48,11 +55,14 @@ class NotificationsController extends GetxController {
         createdAt: n.createdAt,
       );
     }
-    try {
-      await remote.markRead(n.id);
-    } catch (e, st) {
-      developer.log('markRead remote id=${n.id}', name: 'NotificationsController', error: e, stackTrace: st);
-      // Sincroniza quando voltar online (via outbox no syncer).
-    }
+    // Enfileira no outbox — o NotificationSyncer faz o POST /read quando online
+    // (offline-safe). Sai da fila só após o servidor confirmar.
+    await outbox.enqueue(
+      entity: 'notifications',
+      entityId: n.id,
+      operation: OutboxOperation.update,
+      payload: const {'isRead': true},
+    );
+    unawaited(syncManager.runPushOnly());
   }
 }

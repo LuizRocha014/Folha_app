@@ -14,7 +14,7 @@
 class DatabaseSchema {
   DatabaseSchema._();
 
-  static const int version = 4;
+  static const int version = 6;
 
   static const List<String> createStatements = [
     // ── Cache do usuário logado ────────────────────────────────
@@ -88,7 +88,7 @@ class DatabaseSchema {
     CREATE TABLE IF NOT EXISTS credit_cards (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
-      account_id TEXT NOT NULL,
+      account_id TEXT,
       name TEXT NOT NULL,
       brand TEXT NOT NULL,
       last_four TEXT,
@@ -126,6 +126,27 @@ class DatabaseSchema {
     )
     ''',
     'CREATE INDEX IF NOT EXISTS idx_statements_card ON credit_card_statements(credit_card_id)',
+
+    // ── Parcelamentos fixos do cartão ──────────────────────────
+    '''
+    CREATE TABLE IF NOT EXISTS credit_card_installments (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      credit_card_id TEXT NOT NULL,
+      description TEXT NOT NULL,
+      installment_total INTEGER NOT NULL,
+      installments_paid INTEGER NOT NULL DEFAULT 0,
+      installment_amount REAL NOT NULL,
+      start_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      _sync_status TEXT NOT NULL DEFAULT 'synced',
+      _local_updated_at INTEGER NOT NULL DEFAULT 0,
+      _server_updated_at INTEGER
+    )
+    ''',
+    'CREATE INDEX IF NOT EXISTS idx_cc_installments_card ON credit_card_installments(credit_card_id)',
+    'CREATE INDEX IF NOT EXISTS idx_cc_installments_user ON credit_card_installments(user_id)',
 
     // ── Transactions ───────────────────────────────────────────
     '''

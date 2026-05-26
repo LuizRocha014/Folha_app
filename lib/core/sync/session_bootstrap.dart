@@ -8,6 +8,13 @@ import '../../app/modules/bills/data/datasources/bill_remote_datasource.dart';
 import '../../app/modules/bills/data/datasources/bill_syncer.dart';
 import '../../app/modules/categories/data/datasources/category_remote_datasource.dart';
 import '../../app/modules/categories/data/datasources/category_syncer.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_installment_local_datasource.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_installment_remote_datasource.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_installment_syncer.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_local_datasource.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_remote_datasource.dart';
+import '../../app/modules/credit_cards/data/datasources/credit_card_syncer.dart';
+import '../../app/modules/credit_cards/domain/services/installment_materializer.dart';
 import '../../app/modules/transactions/data/datasources/transaction_local_datasource.dart';
 import '../../app/modules/transactions/data/datasources/transaction_remote_datasource.dart';
 import '../../app/modules/transactions/data/datasources/transaction_syncer.dart';
@@ -17,6 +24,7 @@ import '../network/connectivity_service.dart';
 import '../network/folha_http_client.dart';
 import 'entity_syncer.dart';
 import 'outbox_repository.dart';
+import 'pending_reconciler.dart';
 import 'secondary_syncers.dart';
 import 'sync_manager.dart';
 import 'sync_meta_repository.dart';
@@ -47,6 +55,10 @@ class SessionBootstrap {
     final billRemote = BillRemoteDataSourceImpl(http: http);
     final billLocal = BillLocalDataSource(db);
     final categoryRemote = CategoryRemoteDataSourceImpl(http: http);
+    final creditCardRemote = CreditCardRemoteDataSourceImpl(http: http);
+    final creditCardLocal = CreditCardLocalDataSource(db);
+    final installmentRemote = CreditCardInstallmentRemoteDataSourceImpl(http: http);
+    final installmentLocal = CreditCardInstallmentLocalDataSource(db);
     final lookup = Get.find<CategoryLookup>();
     final meta = Get.find<SyncMetaRepository>();
 
@@ -75,7 +87,8 @@ class SessionBootstrap {
     final syncers = <EntitySyncer>[
       AccountSyncer(remote: accountRemote, local: accountLocal, meta: meta),
       CategorySyncer(remote: categoryRemote, lookup: lookup),
-      CreditCardSyncer(http: http, db: db),
+      CreditCardSyncer(remote: creditCardRemote, local: creditCardLocal),
+      CreditCardInstallmentSyncer(remote: installmentRemote, local: installmentLocal),
       RecurrenceSyncer(http: http, db: db),
       BillSyncer(remote: billRemote, local: billLocal, categories: lookup, meta: meta),
       TransactionSyncer(remote: txRemote, local: txLocal, categories: lookup, meta: meta),
@@ -84,15 +97,37 @@ class SessionBootstrap {
       NotificationSyncer(http: http, db: db),
     ];
 
+    final reconciler = PendingReconciler(
+      db: db,
+      outbox: Get.find<OutboxRepository>(),
+    );
+
     final manager = SyncManager(
       outbox: Get.find<OutboxRepository>(),
       connectivity: connectivity,
       syncers: syncers,
+      // Roda antes de cada push/sync — resgata cartões/registros órfãos mesmo
+      // que o bootstrap não seja reexecutado (ex.: reconexão dispara push).
+      reconcilePending: reconciler.run,
     );
     Get.put<SyncManager>(manager, permanent: true);
     manager.start();
 
+    final materializer = InstallmentMaterializer(
+      db: db,
+      txLocal: txLocal,
+      outbox: Get.find<OutboxRepository>(),
+      categories: lookup,
+      syncManager: manager,
+    );
+    Get.put<InstallmentMaterializer>(materializer, permanent: true);
+    // Roda após CADA full sync (inclusive ao reconectar): com os parcelamentos
+    // já baixados, materializa as parcelas vencidas como transações.
+    manager.afterSync = materializer.run;
+
     _booted = true;
+    // Sincroniza tudo (reconcile + push em ordem de dependência + pull); o
+    // afterSync materializa as parcelas no fim.
     unawaited(manager.runFullSync());
   }
 
@@ -102,6 +137,7 @@ class SessionBootstrap {
       await Get.find<SyncManager>().stop();
       Get.delete<SyncManager>(force: true);
     }
+    if (Get.isRegistered<InstallmentMaterializer>()) Get.delete<InstallmentMaterializer>(force: true);
     if (Get.isRegistered<OutboxRepository>()) Get.delete<OutboxRepository>(force: true);
     if (Get.isRegistered<CategoryLookup>()) Get.delete<CategoryLookup>(force: true);
     if (Get.isRegistered<SyncMetaRepository>()) Get.delete<SyncMetaRepository>(force: true);

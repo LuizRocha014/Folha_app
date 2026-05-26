@@ -5,8 +5,11 @@ import '../../app/modules/auth/auth_binding.dart';
 import '../../app/modules/auth/presentation/pages/login_page.dart';
 import '../../app/modules/auth/presentation/pages/signup_page.dart';
 import '../../app/modules/auth/presentation/pages/welcome_page.dart';
+import '../../app/modules/bills/bills_binding.dart';
+import '../../app/modules/bills/presentation/pages/bill_detail_page.dart';
 import '../../app/modules/budgets/presentation/pages/budgets_page.dart';
 import '../../app/modules/credit_cards/credit_cards_binding.dart';
+import '../../app/modules/credit_cards/presentation/pages/card_invoice_page.dart';
 import '../../app/modules/credit_cards/presentation/pages/credit_cards_page.dart';
 import '../../app/modules/goals/goals_binding.dart';
 import '../../app/modules/goals/presentation/pages/goals_page.dart';
@@ -67,6 +70,12 @@ class AppPages {
       transition: Transition.rightToLeft,
     ),
     GetPage(
+      name: AppRoutes.billDetail,
+      page: () => const BillDetailPage(),
+      binding: BillsBinding(),
+      transition: Transition.rightToLeft,
+    ),
+    GetPage(
       name: AppRoutes.accounts,
       page: () => const AccountsPage(),
       binding: AccountsBinding(),
@@ -75,6 +84,12 @@ class AppPages {
     GetPage(
       name: AppRoutes.creditCards,
       page: () => const CreditCardsPage(),
+      binding: CreditCardsBinding(),
+      transition: Transition.rightToLeft,
+    ),
+    GetPage(
+      name: AppRoutes.cardInvoice,
+      page: () => const CardInvoicePage(),
       binding: CreditCardsBinding(),
       transition: Transition.rightToLeft,
     ),

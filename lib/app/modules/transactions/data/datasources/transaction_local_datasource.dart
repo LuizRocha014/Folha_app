@@ -18,6 +18,18 @@ class TransactionLocalDataSource {
     return rows.map(TransactionModel.fromRow).toList();
   }
 
+  /// Transações de um cartão específico (mais recentes primeiro).
+  Future<List<TransactionModel>> listByCreditCard(String creditCardId, {int limit = 500}) async {
+    final rows = await _db.raw.query(
+      'transactions',
+      where: 'user_id = ? AND credit_card_id = ?',
+      whereArgs: [_db.userId, creditCardId],
+      orderBy: 'occurred_at DESC',
+      limit: limit,
+    );
+    return rows.map(TransactionModel.fromRow).toList();
+  }
+
   Future<TransactionModel?> getById(String id) async {
     final rows = await _db.raw.query(
       'transactions',

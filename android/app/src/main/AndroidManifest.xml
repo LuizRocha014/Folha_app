@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- INTERNET no manifesto principal: o Flutter só adiciona em debug/profile,
+         então SEM isto o build de RELEASE fica sem rede e não fala com a API. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Necessária para o login por digital/face (local_auth) no Android 9+. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <application
         android:label="Folha"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

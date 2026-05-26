@@ -161,6 +161,90 @@ class LocalDatabase {
             'CREATE INDEX IF NOT EXISTS idx_bills_user_due ON bills(user_id, due_date)',
           );
         }
+        // v4 → v5: `credit_cards.account_id` passa a aceitar NULL (cartão sem
+        // conta vinculada). SQLite não permite remover NOT NULL via ALTER,
+        // então recriamos a tabela copiando os dados.
+        if (oldVersion < 5) {
+          developer.log(
+            'v4 → v5: `credit_cards.account_id` agora aceita NULL — recriando tabela',
+            name: _migrationLog,
+          );
+          await _runMigrationStep(db, 'DROP INDEX IF EXISTS idx_credit_cards_user');
+          await _runMigrationStep(
+            db,
+            'ALTER TABLE credit_cards RENAME TO credit_cards_old_v4',
+          );
+          await _runMigrationStep(db, '''
+            CREATE TABLE credit_cards (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              account_id TEXT,
+              name TEXT NOT NULL,
+              brand TEXT NOT NULL,
+              last_four TEXT,
+              credit_limit REAL NOT NULL DEFAULT 0,
+              closing_day INTEGER NOT NULL,
+              due_day INTEGER NOT NULL,
+              is_archived INTEGER NOT NULL DEFAULT 0,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              _sync_status TEXT NOT NULL DEFAULT 'synced',
+              _local_updated_at INTEGER NOT NULL DEFAULT 0,
+              _server_updated_at INTEGER
+            )
+          ''');
+          await _runMigrationStep(db, '''
+            INSERT INTO credit_cards (
+              id, user_id, account_id, name, brand, last_four,
+              credit_limit, closing_day, due_day, is_archived,
+              created_at, updated_at,
+              _sync_status, _local_updated_at, _server_updated_at
+            )
+            SELECT
+              id, user_id, account_id, name, brand, last_four,
+              credit_limit, closing_day, due_day, is_archived,
+              created_at, updated_at,
+              _sync_status, _local_updated_at, _server_updated_at
+            FROM credit_cards_old_v4
+          ''');
+          await _runMigrationStep(db, 'DROP TABLE credit_cards_old_v4');
+          await _runMigrationStep(
+            db,
+            'CREATE INDEX IF NOT EXISTS idx_credit_cards_user ON credit_cards(user_id)',
+          );
+        }
+        // v5 → v6: parcelamentos fixos por cartão (`credit_card_installments`).
+        if (oldVersion < 6) {
+          developer.log(
+            'v5 → v6: nova tabela `credit_card_installments`',
+            name: _migrationLog,
+          );
+          await _runMigrationStep(db, '''
+            CREATE TABLE IF NOT EXISTS credit_card_installments (
+              id TEXT PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              credit_card_id TEXT NOT NULL,
+              description TEXT NOT NULL,
+              installment_total INTEGER NOT NULL,
+              installments_paid INTEGER NOT NULL DEFAULT 0,
+              installment_amount REAL NOT NULL,
+              start_date TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              _sync_status TEXT NOT NULL DEFAULT 'synced',
+              _local_updated_at INTEGER NOT NULL DEFAULT 0,
+              _server_updated_at INTEGER
+            )
+          ''');
+          await _runMigrationStep(
+            db,
+            'CREATE INDEX IF NOT EXISTS idx_cc_installments_card ON credit_card_installments(credit_card_id)',
+          );
+          await _runMigrationStep(
+            db,
+            'CREATE INDEX IF NOT EXISTS idx_cc_installments_user ON credit_card_installments(user_id)',
+          );
+        }
         developer.log(
           'onUpgrade concluído user=$userId $oldVersion → $newVersion',
           name: _migrationLog,

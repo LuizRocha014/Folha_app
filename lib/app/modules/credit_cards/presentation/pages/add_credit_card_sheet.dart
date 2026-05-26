@@ -23,6 +23,42 @@ class _AddCreditCardSheetState extends State<AddCreditCardSheet> {
   int _dueDay = 15;
   bool _saving = false;
 
+  final List<_InstallmentDraft> _installments = [];
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _limit.dispose();
+    _lastFour.dispose();
+    for (final d in _installments) {
+      d.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Converte os rascunhos preenchidos em entradas válidas para o controller.
+  List<NewInstallmentInput> _collectInstallments() {
+    final result = <NewInstallmentInput>[];
+    for (final d in _installments) {
+      final desc = d.description.text.trim();
+      final total = int.tryParse(d.total.text.trim()) ?? 0;
+      final paid = int.tryParse(d.paid.text.trim()) ?? 0;
+      final amount = double.tryParse(
+            d.amount.text.replaceAll('.', '').replaceAll(',', '.'),
+          ) ??
+          0;
+      if (desc.isEmpty || total < 1 || amount <= 0) continue;
+      final clampedPaid = paid < 0 ? 0 : (paid > total ? total : paid);
+      result.add(NewInstallmentInput(
+        description: desc,
+        total: total,
+        paid: clampedPaid,
+        amount: amount,
+      ));
+    }
+    return result;
+  }
+
   static const _brands = ['visa', 'master', 'elo', 'amex', 'hiper', 'other'];
 
   static const _brandLabel = {
@@ -52,6 +88,7 @@ class _AddCreditCardSheetState extends State<AddCreditCardSheet> {
         closingDay: _closingDay,
         dueDay: _dueDay,
         lastFour: _lastFour.text.trim().isEmpty ? null : _lastFour.text.trim(),
+        installments: _collectInstallments(),
       );
       if (!mounted) return;
       if (ok) {
@@ -253,6 +290,16 @@ class _AddCreditCardSheetState extends State<AddCreditCardSheet> {
                   ),
                 ],
               ),
+              const SizedBox(height: 22),
+              _InstallmentsSection(
+                drafts: _installments,
+                onAdd: () => setState(() => _installments.add(_InstallmentDraft())),
+                onRemove: (d) => setState(() {
+                  _installments.remove(d);
+                  d.dispose();
+                }),
+                onChanged: () => setState(() {}),
+              ),
               const SizedBox(height: 24),
               FolhaButton(
                 label: _saving ? 'Salvando...' : 'Salvar cartão',
@@ -363,6 +410,226 @@ class _StepBtn extends StatelessWidget {
         ),
         child: Icon(icon, size: 14, color: FolhaColors.ink700),
       ),
+    );
+  }
+}
+
+/// Rascunho de um parcelamento sendo digitado no formulário.
+class _InstallmentDraft {
+  final TextEditingController description = TextEditingController();
+  final TextEditingController total = TextEditingController();
+  final TextEditingController paid = TextEditingController(text: '0');
+  final TextEditingController amount = TextEditingController();
+
+  void dispose() {
+    description.dispose();
+    total.dispose();
+    paid.dispose();
+    amount.dispose();
+  }
+}
+
+/// Seção "Parcelamentos fixos" do cadastro de cartão. Cada parcelamento vira,
+/// mês a mês, uma transação no cartão conforme as parcelas vencem.
+class _InstallmentsSection extends StatelessWidget {
+  const _InstallmentsSection({
+    required this.drafts,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  final List<_InstallmentDraft> drafts;
+  final VoidCallback onAdd;
+  final void Function(_InstallmentDraft) onRemove;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'PARCELAMENTOS FIXOS',
+          style: FolhaTypography.eyebrow.copyWith(letterSpacing: 0.66),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Compras que já estão no cartão e entram na fatura todo mês até quitar. '
+          'A parcela do mês vira uma transação automaticamente.',
+          style: FolhaTypography.bodySm.copyWith(
+            fontSize: 12,
+            color: FolhaColors.fgMuted,
+          ),
+        ),
+        const SizedBox(height: 10),
+        ...drafts.asMap().entries.map(
+              (e) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _InstallmentCard(
+                  index: e.key + 1,
+                  draft: e.value,
+                  onRemove: () => onRemove(e.value),
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+        OutlinedButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(LucideIcons.plus, size: 16),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: FolhaColors.forest700,
+            side: const BorderSide(color: FolhaColors.border),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          label: Text(
+            'Adicionar parcelamento',
+            style: FolhaTypography.body.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: FolhaColors.forest700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InstallmentCard extends StatelessWidget {
+  const _InstallmentCard({
+    required this.index,
+    required this.draft,
+    required this.onRemove,
+    required this.onChanged,
+  });
+
+  final int index;
+  final _InstallmentDraft draft;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: FolhaColors.paper50,
+        border: Border.all(color: FolhaColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Parcelamento $index',
+                  style: FolhaTypography.eyebrow.copyWith(
+                    fontSize: 10,
+                    letterSpacing: 0.66,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: onRemove,
+                borderRadius: BorderRadius.circular(999),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(LucideIcons.trash2, size: 16, color: FolhaColors.terra700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          FolhaInput(
+            controller: draft.description,
+            hintText: 'Ex: Geladeira, Sofá…',
+            onChanged: (_) => onChanged(),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _MiniField(
+                  label: 'PARCELAS',
+                  controller: draft.total,
+                  hintText: '10',
+                  digitsOnly: true,
+                  onChanged: onChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _MiniField(
+                  label: 'JÁ PAGAS',
+                  controller: draft.paid,
+                  hintText: '0',
+                  digitsOnly: true,
+                  onChanged: onChanged,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: _MiniField(
+                  label: 'VALOR (R\$)',
+                  controller: draft.amount,
+                  hintText: '0,00',
+                  digitsOnly: false,
+                  onChanged: onChanged,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniField extends StatelessWidget {
+  const _MiniField({
+    required this.label,
+    required this.controller,
+    required this.hintText,
+    required this.digitsOnly,
+    required this.onChanged,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final String hintText;
+  final bool digitsOnly;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: FolhaTypography.eyebrow.copyWith(letterSpacing: 0.5, fontSize: 9),
+        ),
+        const SizedBox(height: 4),
+        FolhaInput(
+          controller: controller,
+          hintText: hintText,
+          keyboardType: TextInputType.numberWithOptions(decimal: !digitsOnly),
+          inputFormatters: digitsOnly
+              ? [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(3),
+                ]
+              : [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
+          onChanged: (_) => onChanged(),
+        ),
+      ],
     );
   }
 }

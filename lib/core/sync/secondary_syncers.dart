@@ -54,38 +54,6 @@ abstract class _SimplePullSyncer extends BaseRemoteService
   }
 }
 
-class CreditCardSyncer extends _SimplePullSyncer {
-  CreditCardSyncer({required super.http, required super.db});
-
-  @override
-  String get entityName => 'credit_cards';
-  @override
-  int get order => 30;
-  @override
-  String get endpoint => '/api/creditcards';
-  @override
-  String get table => 'credit_cards';
-
-  @override
-  Map<String, dynamic> mapApiToRow(Map<String, dynamic> j) {
-    final now = DateTime.now().toUtc().toIso8601String();
-    return {
-      'id': j['id'],
-      'user_id': j['userId'],
-      'account_id': j['accountId'],
-      'name': j['name'],
-      'brand': j['brand'] ?? 'other',
-      'last_four': j['lastFour'],
-      'credit_limit': (j['creditLimit'] as num?)?.toDouble() ?? 0,
-      'closing_day': j['closingDay'] ?? 1,
-      'due_day': j['dueDay'] ?? 1,
-      'is_archived': (j['isArchived'] == true) ? 1 : 0,
-      'created_at': now,
-      'updated_at': now,
-    };
-  }
-}
-
 class BudgetSyncer extends _SimplePullSyncer {
   BudgetSyncer({required super.http, required super.db});
 
@@ -145,9 +113,43 @@ class GoalSyncer extends _SimplePullSyncer {
       'is_completed': (j['isCompleted'] == true) ? 1 : 0,
       'completed_at': j['completedAt'],
       'is_archived': (j['isArchived'] == true) ? 1 : 0,
+      'monthly_yield_percent': (j['monthlyYieldPercent'] as num?)?.toDouble(),
+      'is_cdb': (j['isCdb'] == true) ? 1 : 0,
       'created_at': now,
       'updated_at': now,
     };
+  }
+
+  // Push real (a UI cria metas). O payload já vem pronto do controller; o
+  // backend aceita o id do cliente, então o id local continua válido.
+  @override
+  Future<void> pushEntry(OutboxEntry entry) async {
+    switch (entry.operation) {
+      case 'create':
+        await postMap(endpoint, body: entry.payload);
+        await _markSynced(entry.entityId);
+        break;
+      case 'update':
+        await putMap('$endpoint/${entry.entityId}', body: entry.payload);
+        await _markSynced(entry.entityId);
+        break;
+      case 'delete':
+        await deleteVoid('$endpoint/${entry.entityId}');
+        await db.raw.delete(table, where: 'id = ?', whereArgs: [entry.entityId]);
+        break;
+    }
+  }
+
+  Future<void> _markSynced(String id) async {
+    await db.raw.update(
+      table,
+      {
+        '_sync_status': 'synced',
+        '_server_updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }
 
@@ -213,5 +215,29 @@ class NotificationSyncer extends _SimplePullSyncer {
       'created_at': now,
       'updated_at': now,
     };
+  }
+
+  // Push real: a única mutação local hoje é marcar como lida.
+  @override
+  Future<void> pushEntry(OutboxEntry entry) async {
+    switch (entry.operation) {
+      case 'create':
+      case 'update':
+        await postVoid('$endpoint/${entry.entityId}/read');
+        await db.raw.update(
+          table,
+          {
+            '_sync_status': 'synced',
+            '_server_updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'id = ?',
+          whereArgs: [entry.entityId],
+        );
+        break;
+      case 'delete':
+        await deleteVoid('$endpoint/${entry.entityId}');
+        await db.raw.delete(table, where: 'id = ?', whereArgs: [entry.entityId]);
+        break;
+    }
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:get/get.dart';
@@ -7,20 +8,17 @@ import '../../../../../core/sync/sync_manager.dart';
 import '../../../../../core/sync/sync_status.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/datasources/goal_local_datasource.dart';
-import '../../data/datasources/goal_remote_datasource.dart';
 import '../../data/models/goal_model.dart';
 import '../../domain/entities/goal_entity.dart';
 
 class GoalsController extends GetxController {
   GoalsController({
     required this.local,
-    required this.remote,
     required this.outbox,
     required this.syncManager,
   });
 
   final GoalLocalDataSource local;
-  final GoalRemoteDataSource remote;
   final OutboxRepository outbox;
   final SyncManager syncManager;
 
@@ -78,23 +76,14 @@ class GoalsController extends GetxController {
         payload: goal.toApiCreateJson(),
       );
       items.insert(0, goal);
-      _pushCreate(goal);
+      // Push via outbox/syncer (offline-safe). O GoalSyncer envia ao servidor
+      // quando houver conexão; se offline, fica na fila até reconectar.
+      unawaited(syncManager.runPushOnly());
       return true;
     } catch (e, st) {
       developer.log('create', name: 'GoalsController', error: e, stackTrace: st);
       error.value = e.toString();
       return false;
-    }
-  }
-
-  Future<void> _pushCreate(GoalModel goal) async {
-    try {
-      await remote.create(goal.toApiCreateJson());
-      await syncManager.runFullSync();
-      await refreshList();
-    } catch (e, st) {
-      developer.log('_pushCreate id=${goal.id}', name: 'GoalsController', error: e, stackTrace: st);
-      // Outbox vai tentar de novo quando online.
     }
   }
 }

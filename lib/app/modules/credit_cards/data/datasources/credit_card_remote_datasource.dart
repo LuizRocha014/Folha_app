@@ -1,6 +1,7 @@
 import '../../../../../core/network/base_remote_service.dart';
 
 abstract class CreditCardRemoteDataSource {
+  Future<List<Map<String, dynamic>>> listRaw();
   Future<Map<String, dynamic>> create(Map<String, dynamic> request);
   Future<Map<String, dynamic>> update(String id, Map<String, dynamic> request);
   Future<void> archive(String id);
@@ -9,6 +10,11 @@ abstract class CreditCardRemoteDataSource {
 class CreditCardRemoteDataSourceImpl extends BaseRemoteService
     implements CreditCardRemoteDataSource {
   CreditCardRemoteDataSourceImpl({required super.http});
+
+  @override
+  Future<List<Map<String, dynamic>>> listRaw() {
+    return getList('/api/creditcards');
+  }
 
   @override
   Future<Map<String, dynamic>> create(Map<String, dynamic> request) {

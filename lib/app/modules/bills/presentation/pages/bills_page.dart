@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import '../../../../../core/routes/app_routes.dart';
 import '../../../../../core/theme/folha_colors.dart';
 import '../../../../../core/theme/folha_typography.dart';
 import '../../../../../core/utils/folha_formatters.dart';
@@ -458,7 +459,10 @@ class _BillCard extends GetView<BillsController> {
     return AnimatedOpacity(
       opacity: paid ? 0.6 : 1,
       duration: const Duration(milliseconds: 200),
-      child: Container(
+      child: InkWell(
+        onTap: () => Get.toNamed(AppRoutes.billDetail, arguments: bill),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: FolhaColors.paper50,
@@ -637,6 +641,7 @@ class _BillCard extends GetView<BillsController> {
               ),
             ],
           ],
+        ),
         ),
       ),
     );
