@@ -5,12 +5,16 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/biometric_usecases.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
+import '../../domain/usecases/resend_code_usecase.dart';
 import '../../domain/usecases/signup_usecase.dart';
+import '../../domain/usecases/verify_email_usecase.dart';
 
 class AuthController extends GetxController {
   AuthController({
     required this.loginUC,
-    required this.signupUC,
+    required this.registerUC,
+    required this.verifyEmailUC,
+    required this.resendCodeUC,
     required this.logoutUC,
     required this.enableBiometricUC,
     required this.disableBiometricUC,
@@ -19,7 +23,9 @@ class AuthController extends GetxController {
   });
 
   final LoginUseCase loginUC;
-  final SignupUseCase signupUC;
+  final RegisterUseCase registerUC;
+  final VerifyEmailUseCase verifyEmailUC;
+  final ResendCodeUseCase resendCodeUC;
   final LogoutUseCase logoutUC;
   final EnableBiometricUseCase enableBiometricUC;
   final DisableBiometricUseCase disableBiometricUC;
@@ -85,7 +91,9 @@ class AuthController extends GetxController {
     );
   }
 
-  Future<bool> signup({
+  /// Etapa 1 do cadastro: cria a conta. Devolve o usuário criado (com a flag
+  /// `emailVerified`) ou null em caso de erro. NÃO autentica.
+  Future<UserEntity?> register({
     required String email,
     required String password,
     required String fullName,
@@ -95,8 +103,8 @@ class AuthController extends GetxController {
   }) async {
     loading.value = true;
     error.value = null;
-    final res = await signupUC(
-      SignupParams(
+    final res = await registerUC(
+      RegisterParams(
         email: email,
         password: password,
         fullName: fullName,
@@ -108,6 +116,21 @@ class AuthController extends GetxController {
       ),
     );
     loading.value = false;
+    return res.fold(
+      (f) {
+        error.value = f.message;
+        return null;
+      },
+      (u) => u,
+    );
+  }
+
+  /// Etapa 2 do cadastro: confirma o código e já autentica a sessão.
+  Future<bool> verifyEmail({required String email, required String code}) async {
+    loading.value = true;
+    error.value = null;
+    final res = await verifyEmailUC(VerifyEmailParams(email: email, code: code));
+    loading.value = false;
     return await res.fold(
       (f) async {
         error.value = f.message;
@@ -118,6 +141,19 @@ class AuthController extends GetxController {
         await SessionBootstrap.bootstrap();
         return true;
       },
+    );
+  }
+
+  /// Reenvia o código de verificação. Retorna true se a requisição foi aceita.
+  Future<bool> resendCode({required String email}) async {
+    error.value = null;
+    final res = await resendCodeUC(ResendCodeParams(email: email));
+    return res.fold(
+      (f) {
+        error.value = f.message;
+        return false;
+      },
+      (_) => true,
     );
   }
 

@@ -10,7 +10,9 @@ import 'domain/repositories/auth_repository.dart';
 import 'domain/usecases/biometric_usecases.dart';
 import 'domain/usecases/login_usecase.dart';
 import 'domain/usecases/logout_usecase.dart';
+import 'domain/usecases/resend_code_usecase.dart';
 import 'domain/usecases/signup_usecase.dart';
+import 'domain/usecases/verify_email_usecase.dart';
 import 'presentation/controllers/auth_controller.dart';
 import 'presentation/controllers/signup_controller.dart';
 
@@ -51,7 +53,9 @@ class AuthBinding extends Bindings {
 
     // UseCases
     Get.lazyPut(() => LoginUseCase(Get.find()), fenix: true);
-    Get.lazyPut(() => SignupUseCase(Get.find()), fenix: true);
+    Get.lazyPut(() => RegisterUseCase(Get.find()), fenix: true);
+    Get.lazyPut(() => VerifyEmailUseCase(Get.find()), fenix: true);
+    Get.lazyPut(() => ResendCodeUseCase(Get.find()), fenix: true);
     Get.lazyPut(() => LogoutUseCase(Get.find()), fenix: true);
     Get.lazyPut(() => EnableBiometricUseCase(Get.find()), fenix: true);
     Get.lazyPut(() => DisableBiometricUseCase(Get.find()), fenix: true);
@@ -63,7 +67,9 @@ class AuthBinding extends Bindings {
       Get.put<AuthController>(
         AuthController(
           loginUC: Get.find(),
-          signupUC: Get.find(),
+          registerUC: Get.find(),
+          verifyEmailUC: Get.find(),
+          resendCodeUC: Get.find(),
           logoutUC: Get.find(),
           enableBiometricUC: Get.find(),
           disableBiometricUC: Get.find(),

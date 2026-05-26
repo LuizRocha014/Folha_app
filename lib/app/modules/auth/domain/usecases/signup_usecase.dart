@@ -5,7 +5,7 @@ import '../../../../../core/usecases/usecase.dart';
 import '../entities/user_entity.dart';
 import '../repositories/auth_repository.dart';
 
-class SignupParams extends Equatable {
+class RegisterParams extends Equatable {
   final String email;
   final String password;
   final String fullName;
@@ -14,7 +14,7 @@ class SignupParams extends Equatable {
   final String? cpf;
   final DateTime? birthDate;
 
-  const SignupParams({
+  const RegisterParams({
     required this.email,
     required this.password,
     required this.fullName,
@@ -27,12 +27,13 @@ class SignupParams extends Equatable {
   List<Object?> get props => [email, password, fullName, displayName, cpf, birthDate];
 }
 
-class SignupUseCase implements UseCase<UserEntity, SignupParams> {
+/// Cria a conta no backend (que dispara o e-mail de verificação). Não autentica.
+class RegisterUseCase implements UseCase<UserEntity, RegisterParams> {
   final AuthRepository repository;
-  SignupUseCase(this.repository);
+  RegisterUseCase(this.repository);
 
   @override
-  Future<Either<Failure, UserEntity>> call(SignupParams params) {
+  Future<Either<Failure, UserEntity>> call(RegisterParams params) {
     if (!params.email.contains('@')) {
       return Future.value(const Left(ValidationFailure('Email inválido.')));
     }
@@ -42,7 +43,7 @@ class SignupUseCase implements UseCase<UserEntity, SignupParams> {
     if (params.fullName.trim().length < 3) {
       return Future.value(const Left(ValidationFailure('Informe seu nome completo.')));
     }
-    return repository.signup(
+    return repository.register(
       email: params.email,
       password: params.password,
       fullName: params.fullName,

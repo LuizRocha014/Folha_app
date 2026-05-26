@@ -7,6 +7,7 @@ class UserEntity extends Equatable {
   final String displayName;
   final String? avatarUrl;
   final String currencyCode;
+  final bool emailVerified;
   // legados — mantidos para o fluxo de signup (UI atual coleta esses dados)
   final String? cpf;
   final DateTime? birthDate;
@@ -18,6 +19,7 @@ class UserEntity extends Equatable {
     required this.displayName,
     this.avatarUrl,
     this.currencyCode = 'BRL',
+    this.emailVerified = true,
     this.cpf,
     this.birthDate,
   });

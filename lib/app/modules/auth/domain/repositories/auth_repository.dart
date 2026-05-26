@@ -8,12 +8,22 @@ abstract class AuthRepository {
     required String password,
   });
 
-  Future<Either<Failure, UserEntity>> signup({
+  /// Cria a conta e dispara o e-mail de verificação. NÃO autentica.
+  Future<Either<Failure, UserEntity>> register({
     required String email,
     required String password,
     required String fullName,
     required String displayName,
   });
+
+  /// Confirma o código de verificação; em caso de sucesso já salva a sessão.
+  Future<Either<Failure, UserEntity>> verifyEmail({
+    required String email,
+    required String code,
+  });
+
+  /// Reenvia o código de verificação para o e-mail informado.
+  Future<Either<Failure, void>> resendCode({required String email});
 
   /// Restaura a sessão a partir do storage seguro (auto-login após reabrir o app).
   Future<Either<Failure, UserEntity?>> restoreSession();

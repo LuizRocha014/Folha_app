@@ -8,12 +8,23 @@ import '../models/user_model.dart';
 abstract class AuthRemoteDataSource {
   Future<AuthSession> login({required String email, required String password});
 
-  Future<UserModel> signup({
+  /// Cria a conta (e dispara o e-mail de verificação no backend).
+  /// NÃO autentica — o usuário precisa confirmar o código antes.
+  Future<UserModel> register({
     required String email,
     required String password,
     required String fullName,
     required String displayName,
   });
+
+  /// Confirma o código de 6 dígitos e devolve a sessão (tokens) já autenticada.
+  Future<AuthSession> verifyEmail({
+    required String email,
+    required String code,
+  });
+
+  /// Pede um novo código de verificação para o e-mail informado.
+  Future<void> resendCode({required String email});
 
   Future<UserModel> currentUserMe();
 
@@ -28,7 +39,7 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
   Future<AuthSession> login({
     required String email,
     required String password,
-  }) async {  
+  }) async {
     try {
       final json = await postMap(
         '/api/auth/login',
@@ -42,13 +53,13 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
       throw AuthException('Email ou senha inválidos.');
     } on ServerException catch (e, st) {
       developer.log('login: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
-      // 400 com payload de validação volta como ServerException — re-traduz.
+      // 400/403 (ex.: e-mail não verificado) volta com a mensagem do backend.
       throw AuthException(e.message);
     }
   }
 
   @override
-  Future<UserModel> signup({
+  Future<UserModel> register({
     required String email,
     required String password,
     required String fullName,
@@ -67,10 +78,38 @@ class AuthRemoteDataSourceImpl extends BaseRemoteService
       );
       return UserModel.fromJson(json);
     } on ServerException catch (e, st) {
-      developer.log('signup: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
-      // Validation / email duplicado vem como 400.
+      developer.log('register: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
+      // Validação / e-mail duplicado vem como 400.
       throw AuthException(e.message);
     }
+  }
+
+  @override
+  Future<AuthSession> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final json = await postMap(
+        '/api/auth/verify-email',
+        body: {'email': email, 'code': code},
+        anonymous: true,
+      );
+      return AuthSession.fromLoginResponse(json);
+    } on ServerException catch (e, st) {
+      developer.log('verifyEmail: ServerException', name: 'AuthRemoteDataSource', error: e, stackTrace: st);
+      // Código inválido / expirado / muitas tentativas → 400 com mensagem.
+      throw AuthException(e.message);
+    }
+  }
+
+  @override
+  Future<void> resendCode({required String email}) async {
+    await postVoid(
+      '/api/auth/resend-code',
+      body: {'email': email},
+      anonymous: true,
+    );
   }
 
   @override

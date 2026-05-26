@@ -10,6 +10,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_datasource.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../models/auth_session.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({
@@ -29,6 +30,22 @@ class AuthRepositoryImpl implements AuthRepository {
   /// `InitialBinding` registra o resultado no Get container.
   final Future<LocalDatabase> Function(String userId)? onDatabaseOpened;
 
+  /// Persiste tokens + usuário e abre o banco encriptado. Reutilizado por
+  /// `login` e `verifyEmail` (ambos recebem uma sessão autenticada).
+  Future<UserEntity> _persistSession(AuthSession session) async {
+    await local.saveSession(
+      accessToken: session.accessToken,
+      refreshToken: session.refreshToken,
+      refreshExpiresAt: session.refreshTokenExpiresAt,
+      user: session.user,
+    );
+    if (onDatabaseOpened != null) {
+      local.database = await onDatabaseOpened!(session.user.id);
+      await local.upsertUserInDb(session.user);
+    }
+    return session.user;
+  }
+
   @override
   Future<Either<Failure, UserEntity>> login({
     required String email,
@@ -36,17 +53,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     try {
       final session = await remote.login(email: email, password: password);
-      await local.saveSession(
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        refreshExpiresAt: session.refreshTokenExpiresAt,
-        user: session.user,
-      );
-      if (onDatabaseOpened != null) {
-        local.database = await onDatabaseOpened!(session.user.id);
-        await local.upsertUserInDb(session.user);
-      }
-      return Right(session.user);
+      final user = await _persistSession(session);
+      return Right(user);
     } on AuthException catch (e, st) {
       developer.log('login: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(AuthFailure(e.message));
@@ -63,34 +71,73 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, UserEntity>> signup({
+  Future<Either<Failure, UserEntity>> register({
     required String email,
     required String password,
     required String fullName,
     required String displayName,
   }) async {
     try {
-      final created = await remote.signup(
+      final created = await remote.register(
         email: email,
         password: password,
         fullName: fullName,
         displayName: displayName,
       );
-      // Faz login automático após signup pra capturar tokens.
-      return await login(email: email, password: password).then((either) {
-        return either.fold((f) => Right(created), Right.new);
-      });
+      // NÃO faz login: o usuário só entra depois de confirmar o código.
+      return Right(created);
     } on AuthException catch (e, st) {
-      developer.log('signup: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
+      developer.log('register: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(AuthFailure(e.message));
     } on NetworkException catch (e, st) {
-      developer.log('signup: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
+      developer.log('register: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(NetworkFailure(e.message));
     } on ServerException catch (e, st) {
-      developer.log('signup: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
+      developer.log('register: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
       return Left(ServerFailure(e.message));
     } catch (e, st) {
-      developer.log('signup: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
+      developer.log('register: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserEntity>> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    try {
+      final session = await remote.verifyEmail(email: email, code: code);
+      final user = await _persistSession(session);
+      return Right(user);
+    } on AuthException catch (e, st) {
+      developer.log('verifyEmail: AuthException', name: 'AuthRepository', error: e, stackTrace: st);
+      return Left(AuthFailure(e.message));
+    } on NetworkException catch (e, st) {
+      developer.log('verifyEmail: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e, st) {
+      developer.log('verifyEmail: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
+      return Left(ServerFailure(e.message));
+    } catch (e, st) {
+      developer.log('verifyEmail: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> resendCode({required String email}) async {
+    try {
+      await remote.resendCode(email: email);
+      return const Right(null);
+    } on NetworkException catch (e, st) {
+      developer.log('resendCode: NetworkException', name: 'AuthRepository', error: e, stackTrace: st);
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e, st) {
+      developer.log('resendCode: ServerException', name: 'AuthRepository', error: e, stackTrace: st);
+      return Left(ServerFailure(e.message));
+    } catch (e, st) {
+      developer.log('resendCode: erro inesperado', name: 'AuthRepository', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }

@@ -8,6 +8,7 @@ class UserModel extends UserEntity {
     required super.displayName,
     super.avatarUrl,
     super.currencyCode,
+    super.emailVerified,
     super.cpf,
     super.birthDate,
   });
@@ -31,6 +32,7 @@ class UserModel extends UserEntity {
       displayName: (json['displayName'] as String?) ?? '',
       avatarUrl: json['avatarUrl'] as String?,
       currencyCode: (json['currencyCode'] as String?) ?? 'BRL',
+      emailVerified: (json['emailVerified'] as bool?) ?? true,
     );
   }
 

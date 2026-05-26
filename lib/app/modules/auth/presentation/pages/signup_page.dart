@@ -273,12 +273,17 @@ class _StepIdentity extends GetView<SignupController> {
             ),
           ),
         ),
+        const _SignupError(),
+        const SizedBox(height: 8),
         Obx(
           () => FolhaButton(
             label: 'Continuar',
             size: FolhaButtonSize.lg,
             fullWidth: true,
-            onPressed: controller.identityValid ? controller.next : null,
+            loading: controller.loading.value,
+            onPressed: controller.identityValid && !controller.loading.value
+                ? controller.submitIdentity
+                : null,
           ),
         ),
       ],
@@ -379,7 +384,19 @@ class _StepVerify extends GetView<SignupController> {
               ),
               const SizedBox(height: 24),
               GestureDetector(
-                onTap: () {},
+                onTap: () async {
+                  final ok = await controller.resend();
+                  if (ok) {
+                    Get.snackbar(
+                      'Código reenviado',
+                      'Enviamos um novo código para ${controller.email.value}.',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: FolhaColors.forest200,
+                      colorText: FolhaColors.forest700,
+                      margin: const EdgeInsets.all(16),
+                    );
+                  }
+                },
                 child: Text(
                   'Não recebeu? Reenviar código',
                   style: FolhaTypography.body.copyWith(
@@ -392,14 +409,17 @@ class _StepVerify extends GetView<SignupController> {
             ],
           ),
         ),
+        const _SignupError(),
+        const SizedBox(height: 8),
         Obx(
           () => FolhaButton(
             label: 'Verificar',
             size: FolhaButtonSize.lg,
             fullWidth: true,
-            onPressed: controller.verifyValid
+            loading: controller.loading.value,
+            onPressed: controller.verifyValid && !controller.loading.value
                 ? () async {
-                    final ok = await controller.finalize();
+                    final ok = await controller.verify();
                     if (ok) controller.next();
                   }
                 : null,
@@ -407,6 +427,35 @@ class _StepVerify extends GetView<SignupController> {
         ),
       ],
     );
+  }
+}
+
+/// Mensagem de erro do fluxo de cadastro (compartilhada entre as etapas).
+class _SignupError extends GetView<SignupController> {
+  const _SignupError();
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final msg = controller.error.value;
+      if (msg == null || msg.isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 4, bottom: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(LucideIcons.circleAlert, size: 16, color: FolhaColors.terra700),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                msg,
+                style: FolhaTypography.bodySm.copyWith(color: FolhaColors.terra700),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 }
 
